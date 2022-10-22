@@ -30,8 +30,10 @@
 
     :copyright: (c) 2017 by Hsiaoming Yang.
 """
-from authlib.common.security import is_secure_transport
-from authlib.oauth2.base import OAuth2Error
+from fastapi import status
+
+from ..base import OAuth2Error
+from ..common.security import is_secure_transport
 
 __all__ = [
     'OAuth2Error',
@@ -83,11 +85,11 @@ class InvalidClientError(OAuth2Error):
     https://tools.ietf.org/html/rfc6749#section-5.2
     """
     error = 'invalid_client'
-    status_code = 400
+    status_code = status.HTTP_400_BAD_REQUEST
 
     def get_headers(self):
         headers = super(InvalidClientError, self).get_headers()
-        if self.status_code == 401:
+        if self.status_code == status.HTTP_401_UNAUTHORIZED:
             error_description = self.get_error_description()
             # safe escape
             error_description = error_description.replace('"', '|')
@@ -177,7 +179,7 @@ class AccessDeniedError(OAuth2Error):
 
 
 class ForbiddenError(OAuth2Error):
-    status_code = 401
+    status_code = status.HTTP_401_UNAUTHORIZED
 
     def __init__(self, auth_type=None, realm=None):
         super(ForbiddenError, self).__init__()
