@@ -1,1 +1,2 @@
 from .provider.authorization_server import AuthorizationServer
+from .provider.resource_protector import ResourceProtector
