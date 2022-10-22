@@ -1,8 +1,7 @@
 import hashlib
 import re
 
-from authlib.common.encoding import to_bytes, to_unicode, urlsafe_b64encode
-
+from ..common.encoding import to_bytes, to_unicode, urlsafe_b64encode
 from ..rfc6749.errors import InvalidGrantError, InvalidRequestError
 
 CODE_VERIFIER_PATTERN = re.compile(r'^[a-zA-Z0-9\-._~]{43,128}$')

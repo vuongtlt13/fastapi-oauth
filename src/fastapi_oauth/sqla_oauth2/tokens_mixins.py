@@ -1,7 +1,8 @@
 import time
 
-from authlib.oauth2.rfc6749 import AuthorizationCodeMixin, TokenMixin
 from sqlalchemy import Column, Integer, String, Text
+
+from ..rfc6749 import AuthorizationCodeMixin, TokenMixin
 
 
 class OAuth2AuthorizationCodeMixin(AuthorizationCodeMixin):

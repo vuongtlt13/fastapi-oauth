@@ -4,8 +4,8 @@ from pydantic import BaseSettings
 
 
 class OAuthSetting(BaseSettings):
-    OAUTH2_SCOPES_SUPPORTED: List[str]
-    OAUTH2_ERROR_URIS: List[str]
+    OAUTH2_SCOPES_SUPPORTED: List[str] = ['vuong-open-id']
+    OAUTH2_ERROR_URIS: List[str] = ['oauth/error']
 
     """
     OAUTH2_ACCESS_TOKEN_GENERATOR: Boolean or import string, default is True.
