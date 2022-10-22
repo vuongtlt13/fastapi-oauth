@@ -1,4 +1,4 @@
-from authlib.common.urls import add_params_to_qs
+from ..common.urls import add_params_to_qs
 
 
 def prepare_revoke_token_request(
