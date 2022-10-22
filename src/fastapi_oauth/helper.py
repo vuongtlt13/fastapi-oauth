@@ -1,4 +1,4 @@
-from src.fastapi_oauth.common.encoding import to_unicode
+from common.encoding import to_unicode
 
 
 def create_oauth_request(request, request_cls, use_json=False):
