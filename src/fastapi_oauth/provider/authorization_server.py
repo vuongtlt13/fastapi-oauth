@@ -15,7 +15,7 @@ from .signals import client_authenticated, token_revoked
 
 
 class AuthorizationServer(_AuthorizationServer):
-    """FastAPI implementation of :class:`authlib.oauth2.rfc6749.AuthorizationServer`.
+    """FastAPI implementation of :class:`fastapi_oauth.rfc6749.AuthorizationServer`.
     Initialize it with ``query_client``, ``save_token`` methods and FastAPI
     app instance::
 
@@ -101,7 +101,7 @@ class AuthorizationServer(_AuthorizationServer):
     def create_bearer_token_generator(cls, config: OAuthSetting) -> BearerTokenGenerator:
         """Create a generator function for generating ``token`` value. This
         method will create a Bearer Token generator with
-        :class:`authlib.oauth2.rfc6750.BearerToken`.
+        :class:`fastapi_oauth.rfc6750.BearerToken`.
 
         Configurable settings:
 

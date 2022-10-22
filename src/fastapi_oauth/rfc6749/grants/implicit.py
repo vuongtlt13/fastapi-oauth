@@ -1,7 +1,6 @@
 import logging
 
-from authlib.common.urls import add_params_to_uri
-
+from ...common.urls import add_params_to_uri
 from ..errors import AccessDeniedError, OAuth2Error, UnauthorizedClientError
 from .base import AuthorizationEndpointMixin, BaseGrant
 

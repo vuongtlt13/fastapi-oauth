@@ -1,7 +1,6 @@
 import time
 
-from authlib.common.urls import url_decode, urlparse
-
+from ..common.urls import url_decode, urlparse
 from .errors import InsecureTransportError
 
 

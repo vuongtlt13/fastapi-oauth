@@ -1,8 +1,5 @@
 # -*- coding: utf-8 -*-
 """
-    authlib.oauth2.rfc6749
-    ~~~~~~~~~~~~~~~~~~~~~~
-
     This module represents a direct implementation of
     The OAuth 2.0 Authorization Framework.
 
