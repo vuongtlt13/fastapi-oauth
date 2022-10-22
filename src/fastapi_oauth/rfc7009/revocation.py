@@ -1,6 +1,6 @@
 from sqlalchemy.ext.asyncio import AsyncSession
 
-from ..consts import default_json_headers
+from ..consts import DEFAULT_JSON_HEADERS
 from ..rfc6749 import InvalidRequestError, TokenEndpoint, UnsupportedTokenTypeError
 
 
@@ -65,7 +65,7 @@ class RevocationEndpoint(TokenEndpoint):
                 token=token,
                 client=client,
             )
-        return 200, {}, default_json_headers
+        return 200, {}, DEFAULT_JSON_HEADERS
 
     async def query_token(self, token_string, token_type_hint, session: AsyncSession):
         """Get the token from database/storage by the given token string.

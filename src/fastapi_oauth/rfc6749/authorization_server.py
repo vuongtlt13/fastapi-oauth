@@ -1,3 +1,5 @@
+from sqlalchemy.ext.asyncio import AsyncSession
+
 from .authenticate_client import ClientAuthentication
 from .errors import InvalidScopeError, OAuth2Error, UnsupportedGrantTypeError, UnsupportedResponseTypeError
 from .util import scope_to_list
@@ -17,14 +19,14 @@ class AuthorizationServer(object):
         self._token_grants = []
         self._endpoints = {}
 
-    def query_client(self, client_id):
+    async def query_client(self, client_id, session: AsyncSession):
         """Query OAuth client by client_id. The client model class MUST
         implement the methods described by
         :class:`~authlib.oauth2.rfc6749.ClientMixin`.
         """
         raise NotImplementedError()
 
-    def save_token(self, token, request):
+    async def save_token(self, token, request, session: AsyncSession):
         """Define function to save the generated token into database."""
         raise NotImplementedError()
 
@@ -70,7 +72,7 @@ class AuthorizationServer(object):
 
             authorization_server.register_token_generator('default', generate_bearer_token)
 
-        If you register a generator for a certain grant type, that generator will only works
+        If you register a generator for a certain grant type, that generator will only work
         for the given grant type::
 
             authorization_server.register_token_generator('client_credentials', generate_bearer_token)
@@ -143,7 +145,7 @@ class AuthorizationServer(object):
         """
         raise NotImplementedError()
 
-    def handle_response(self, status, body, headers):
+    def handle_response(self, status_code, body, headers):
         """Return HTTP response. Framework MUST implement this function."""
         raise NotImplementedError()
 

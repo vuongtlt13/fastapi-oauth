@@ -1,6 +1,6 @@
 from sqlalchemy.ext.asyncio import AsyncSession
 
-from ...consts import default_json_headers
+from ...consts import DEFAULT_JSON_HEADERS
 from ..errors import InvalidRequestError
 
 
@@ -15,7 +15,7 @@ class BaseGrant(object):
     # application/json should always in UTF-8.
     # The example on RFC is incorrect.
     # https://tools.ietf.org/html/rfc4627
-    TOKEN_RESPONSE_HEADER = default_json_headers
+    TOKEN_RESPONSE_HEADER = DEFAULT_JSON_HEADERS
 
     def __init__(self, request, server):
         self.prompt = None
