@@ -166,7 +166,7 @@ class AuthorizationCodeGrant(BaseGrant, AuthorizationEndpointMixin, TokenEndpoin
         headers = [('Location', uri)]
         return 302, '', headers
 
-    def validate_token_request(self, session: AsyncSession):
+    async def validate_token_request(self, session: AsyncSession):
         """The client makes a request to the token endpoint by sending the
         following parameters using the "application/x-www-form-urlencoded"
         format per `Section 4.1.3`_:

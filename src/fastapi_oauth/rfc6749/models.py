@@ -4,7 +4,7 @@
 
     This module defines how to construct Client, AuthorizationCode and Token.
 """
-from authlib.deprecate import deprecate
+from ..deprecate import deprecate
 
 
 class ClientMixin(object):

@@ -1,7 +1,7 @@
 import base64
 import binascii
 
-from authlib.common.encoding import to_unicode
+from ..common.encoding import to_unicode
 
 
 def list_to_scope(scope):

@@ -1,27 +1,28 @@
 import functools
+import json
 from contextlib import contextmanager
 
-from authlib.oauth2 import OAuth2Error
-from authlib.oauth2 import ResourceProtector as _ResourceProtector
-from authlib.oauth2.rfc6749 import HttpRequest, MissingAuthorizationError
-from flask import _app_ctx_stack, json
-from flask import request as _req
 from werkzeug.local import LocalProxy
 
+from ..base import OAuth2Error
+from ..rfc6749 import HttpRequest, MissingAuthorizationError
+from ..rfc6749 import ResourceProtector as _ResourceProtector
 from .errors import raise_http_exception
 from .signals import token_authenticated
 
 
 class ResourceProtector(_ResourceProtector):
-    """A protecting method for resource servers. Creating a ``require_oauth``
+    """
+    TODO: update example for fastapi
+    A protecting method for resource servers. Creating a ``require_oauth``
     decorator easily with ResourceProtector::
 
-        from authlib.integrations.flask_oauth2 import ResourceProtector
+        from fastapi_oauth.provider import ResourceProtector
 
         require_oauth = ResourceProtector()
 
         # add bearer token validator
-        from authlib.oauth2.rfc6750 import BearerTokenValidator
+        from fastapi_oauth.rfc6750 import BearerTokenValidator
         from project.models import Token
 
         class MyBearerTokenValidator(BearerTokenValidator):
