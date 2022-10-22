@@ -1,4 +1,4 @@
-from authlib.common.urls import add_params_to_qs, add_params_to_uri
+from ..common.urls import add_params_to_qs, add_params_to_uri
 
 
 def add_to_uri(token, uri):
