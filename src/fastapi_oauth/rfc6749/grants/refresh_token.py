@@ -42,12 +42,12 @@ class RefreshTokenGrant(BaseGrant, TokenEndpointMixin):
 
         return client
 
-    def _validate_request_token(self, client):
+    async def _validate_request_token(self, client, session: AsyncSession):
         refresh_token = self.request.form.get('refresh_token')
         if refresh_token is None:
             raise InvalidRequestError('Missing "refresh_token" in request.')
 
-        token = self.authenticate_refresh_token(refresh_token)
+        token = await self.authenticate_refresh_token(refresh_token, session)
         if not token or not token.check_client(client):
             raise InvalidGrantError()
         return token
@@ -101,7 +101,7 @@ class RefreshTokenGrant(BaseGrant, TokenEndpointMixin):
         """
         client = self._validate_request_client()
         self.request.client = client
-        token = self._validate_request_token(client)
+        token = await self._validate_request_token(client, session)
         self._validate_token_scope(token)
         self.request.credential = token
 
@@ -123,7 +123,7 @@ class RefreshTokenGrant(BaseGrant, TokenEndpointMixin):
         self.request.user = user
         self.save_token(token)
         self.execute_hook('process_token', token=token)
-        self.revoke_old_credential(credential)
+        await self.revoke_old_credential(credential, session)
         return 200, token, self.TOKEN_RESPONSE_HEADER
 
     def issue_token(self, user, credential):
@@ -140,7 +140,7 @@ class RefreshTokenGrant(BaseGrant, TokenEndpointMixin):
         )
         return token
 
-    def authenticate_refresh_token(self, refresh_token):
+    async def authenticate_refresh_token(self, refresh_token, session: AsyncSession):
         """Get token information with refresh_token string. Developers MUST
         implement this method in subclass::
 
@@ -149,6 +149,7 @@ class RefreshTokenGrant(BaseGrant, TokenEndpointMixin):
                 if token and not token.refresh_token_revoked:
                     return token
 
+        :param session: async SQLAlchemy session
         :param refresh_token: The refresh token issued to the client
         :return: token
         """
@@ -161,13 +162,13 @@ class RefreshTokenGrant(BaseGrant, TokenEndpointMixin):
             def authenticate_user(self, credential):
                 return User.query.get(credential.user_id)
 
-        :param session: async session for database connection
+        :param session: async SQLAlchemy session
         :param credential: Token object
         :return: user
         """
         raise NotImplementedError()
 
-    def revoke_old_credential(self, credential):
+    async def revoke_old_credential(self, credential, session: AsyncSession):
         """The authorization server MAY revoke the old refresh token after
         issuing a new refresh token to the client. Developers MUST implement
         this method in subclass::
@@ -176,6 +177,7 @@ class RefreshTokenGrant(BaseGrant, TokenEndpointMixin):
                 credential.revoked = True
                 credential.save()
 
+        :param session: async SQLAlchemy session
         :param credential: Token object
         """
         raise NotImplementedError()
