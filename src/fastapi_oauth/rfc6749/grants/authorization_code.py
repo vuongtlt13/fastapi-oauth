@@ -145,7 +145,7 @@ class AuthorizationCodeGrant(BaseGrant, AuthorizationEndpointMixin, TokenEndpoin
 
         .. _`Section 4.1.2`: https://tools.ietf.org/html/rfc6749#section-4.1.2
 
-        :param session: async session for database connection
+        :param session: async SQLAlchemy session
         :param redirect_uri: Redirect to the given URI for the authorization
         :param grant_user: if resource owner granted the request, pass this
             resource owner, otherwise pass None.
@@ -205,7 +205,7 @@ class AuthorizationCodeGrant(BaseGrant, AuthorizationEndpointMixin, TokenEndpoin
             &redirect_uri=https%3A%2F%2Fclient%2Eexample%2Ecom%2Fcb
 
         .. _`Section 4.1.3`: https://tools.ietf.org/html/rfc6749#section-4.1.3
-        :param session: async session for database connection
+        :param session: async SQLAlchemy session
         """
         # ignore validate for grant_type, since it is validated by
         # check_token_endpoint
@@ -324,7 +324,7 @@ class AuthorizationCodeGrant(BaseGrant, AuthorizationEndpointMixin, TokenEndpoin
             def query_authorization_code(self, code, client):
                 return Authorization.get(code=code, client_id=client.client_id)
 
-        :param session: async session for database connection
+        :param session: async SQLAlchemy session
         :param code: a string represent the code.
         :param client: client related to this code.
         :return: authorization_code object
@@ -338,7 +338,7 @@ class AuthorizationCodeGrant(BaseGrant, AuthorizationEndpointMixin, TokenEndpoin
             def delete_authorization_code(self, authorization_code):
                 authorization_code.delete()
 
-        :param session: async session for database connection
+        :param session: async SQLAlchemy session
         :param authorization_code: the instance of authorization_code
         """
         raise NotImplementedError()
@@ -350,7 +350,7 @@ class AuthorizationCodeGrant(BaseGrant, AuthorizationEndpointMixin, TokenEndpoin
             def authenticate_user(self, authorization_code):
                 return User.query.get(authorization_code.user_id)
 
-        :param session: async session for database connection
+        :param session: async SQLAlchemy session
         :param authorization_code: AuthorizationCode object
         :return: user
         """
