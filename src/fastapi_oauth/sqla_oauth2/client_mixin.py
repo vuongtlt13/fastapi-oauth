@@ -1,8 +1,9 @@
 import secrets
 
-from authlib.common.encoding import json_dumps, json_loads
-from authlib.oauth2.rfc6749 import ClientMixin, list_to_scope, scope_to_list
 from sqlalchemy import Column, Integer, String, Text
+
+from ..common.encoding import json_dumps, json_loads
+from ..rfc6749 import ClientMixin, list_to_scope, scope_to_list
 
 
 class OAuth2ClientMixin(ClientMixin):
