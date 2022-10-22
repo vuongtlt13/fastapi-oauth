@@ -1,5 +1,5 @@
 #: coding: utf-8
-from authlib.consts import default_json_headers
+from ..consts import DEFAULT_JSON_HEADERS
 
 
 class AuthlibBaseError(Exception):
@@ -53,7 +53,7 @@ class AuthlibHTTPError(AuthlibBaseError):
         return error
 
     def get_headers(self):
-        return default_json_headers[:]
+        return DEFAULT_JSON_HEADERS[:]
 
     def __call__(self, uri=None):
         self.uri = uri
