@@ -1,19 +1,19 @@
 import logging
-from sqlalchemy.ext.asyncio import AsyncSession
 
-from .base import BaseGrant, AuthorizationEndpointMixin, TokenEndpointMixin
-from ..errors import (
-    OAuth2Error,
-    UnauthorizedClientError,
-    InvalidClientError,
-    InvalidGrantError,
-    InvalidRequestError,
-    AccessDeniedError,
-)
 from fastapi import Request
+from sqlalchemy.ext.asyncio import AsyncSession
 
 from ...common.security import generate_token
 from ...common.urls import add_params_to_uri
+from ..errors import (
+    AccessDeniedError,
+    InvalidClientError,
+    InvalidGrantError,
+    InvalidRequestError,
+    OAuth2Error,
+    UnauthorizedClientError,
+)
+from .base import AuthorizationEndpointMixin, BaseGrant, TokenEndpointMixin
 
 log = logging.getLogger(__name__)
 
@@ -216,7 +216,8 @@ class AuthorizationCodeGrant(BaseGrant, AuthorizationEndpointMixin, TokenEndpoin
         log.debug('Validate token request of %r', client)
         if not client.check_grant_type(self.GRANT_TYPE):
             raise UnauthorizedClientError(
-                f'The client is not authorized to use "grant_type={self.GRANT_TYPE}"')
+                f'The client is not authorized to use "grant_type={self.GRANT_TYPE}"',
+            )
 
         code = self.request.form.get('code')
         if code is None:

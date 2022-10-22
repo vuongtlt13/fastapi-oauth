@@ -30,8 +30,8 @@
 
     :copyright: (c) 2017 by Hsiaoming Yang.
 """
-from authlib.oauth2.base import OAuth2Error
 from authlib.common.security import is_secure_transport
+from authlib.oauth2.base import OAuth2Error
 
 __all__ = [
     'OAuth2Error',
@@ -93,10 +93,10 @@ class InvalidClientError(OAuth2Error):
             error_description = error_description.replace('"', '|')
             extras = [
                 'error="{}"'.format(self.error),
-                'error_description="{}"'.format(error_description)
+                'error_description="{}"'.format(error_description),
             ]
             headers.append(
-                ('WWW-Authenticate', 'Basic ' + ', '.join(extras))
+                ('WWW-Authenticate', 'Basic ' + ', '.join(extras)),
             )
         return headers
 
@@ -196,7 +196,7 @@ class ForbiddenError(OAuth2Error):
         error_description = self.description
         extras.append('error_description="{}"'.format(error_description))
         headers.append(
-            ('WWW-Authenticate', f'{self.auth_type} ' + ', '.join(extras))
+            ('WWW-Authenticate', f'{self.auth_type} ' + ', '.join(extras)),
         )
         return headers
 

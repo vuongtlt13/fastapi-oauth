@@ -1,7 +1,7 @@
 from sqlalchemy.ext.asyncio import AsyncSession
 
-from ..errors import InvalidRequestError
 from ...consts import default_json_headers
+from ..errors import InvalidRequestError
 
 
 class BaseGrant(object):
@@ -33,8 +33,10 @@ class BaseGrant(object):
     def client(self):
         return self.request.client
 
-    def generate_token(self, user=None, scope=None, grant_type=None,
-                       expires_in=None, include_refresh_token=True):
+    def generate_token(
+        self, user=None, scope=None, grant_type=None,
+        expires_in=None, include_refresh_token=True,
+    ):
         if grant_type is None:
             grant_type = self.GRANT_TYPE
         return self.server.generate_token(
@@ -67,10 +69,12 @@ class BaseGrant(object):
         :return: client
         """
         client = self.server.authenticate_client(
-            self.request, self.TOKEN_ENDPOINT_AUTH_METHODS)
+            self.request, self.TOKEN_ENDPOINT_AUTH_METHODS,
+        )
         self.server.send_signal(
             'after_authenticate_client',
-            client=client, grant=self)
+            client=client, grant=self,
+        )
         return client
 
     def save_token(self, token):
@@ -85,8 +89,10 @@ class BaseGrant(object):
 
     def register_hook(self, hook_type, hook):
         if hook_type not in self._hooks:
-            raise ValueError('Hook type %s is not in %s.',
-                             hook_type, self._hooks)
+            raise ValueError(
+                'Hook type %s is not in %s.',
+                hook_type, self._hooks,
+            )
         self._hooks[hook_type].add(hook)
 
     def execute_hook(self, hook_type, *args, **kwargs):
@@ -127,14 +133,16 @@ class AuthorizationEndpointMixin(object):
             if not client.check_redirect_uri(request.redirect_uri):
                 raise InvalidRequestError(
                     f'Redirect URI {request.redirect_uri} is not supported by client.',
-                    state=request.state)
+                    state=request.state,
+                )
             return request.redirect_uri
         else:
             redirect_uri = client.get_default_redirect_uri()
             if not redirect_uri:
                 raise InvalidRequestError(
                     'Missing "redirect_uri" in request.',
-                    state=request.state)
+                    state=request.state,
+                )
             return redirect_uri
 
     def validate_consent_request(self):

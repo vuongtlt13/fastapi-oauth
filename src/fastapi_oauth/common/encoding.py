@@ -1,5 +1,5 @@
-import json
 import base64
+import json
 import struct
 
 
@@ -49,7 +49,7 @@ def urlsafe_b64encode(s):
 def base64_to_int(s):
     data = urlsafe_b64decode(to_bytes(s, charset='ascii'))
     buf = struct.unpack('%sB' % len(data), data)
-    return int(''.join(["%02x" % byte for byte in buf]), 16)
+    return int(''.join(['%02x' % byte for byte in buf]), 16)
 
 
 def int_to_base64(num):

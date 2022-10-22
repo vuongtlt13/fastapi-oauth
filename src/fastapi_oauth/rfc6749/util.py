@@ -1,12 +1,13 @@
 import base64
 import binascii
+
 from authlib.common.encoding import to_unicode
 
 
 def list_to_scope(scope):
     """Convert a list of scopes to a space separated string."""
     if isinstance(scope, (set, tuple, list)):
-        return " ".join([to_unicode(s) for s in scope])
+        return ' '.join([to_unicode(s) for s in scope])
     if scope is None:
         return scope
     return to_unicode(scope)

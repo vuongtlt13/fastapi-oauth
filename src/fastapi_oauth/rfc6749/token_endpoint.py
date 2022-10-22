@@ -1,3 +1,6 @@
+from sqlalchemy.ext.asyncio import AsyncSession
+
+
 class TokenEndpoint(object):
     #: Endpoint name to be registered
     ENDPOINT_NAME = None
@@ -21,12 +24,13 @@ class TokenEndpoint(object):
         """Authentication client for endpoint with ``CLIENT_AUTH_METHODS``.
         """
         client = self.server.authenticate_client(
-            request, self.CLIENT_AUTH_METHODS, self.ENDPOINT_NAME)
+            request, self.CLIENT_AUTH_METHODS, self.ENDPOINT_NAME,
+        )
         request.client = client
         return client
 
-    def authenticate_token(self, request, client):
+    async def authenticate_token(self, request, client, session: AsyncSession):
         raise NotImplementedError()
 
-    def create_endpoint_response(self, request):
+    async def create_endpoint_response(self, request, session: AsyncSession):
         raise NotImplementedError()

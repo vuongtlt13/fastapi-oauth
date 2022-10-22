@@ -31,8 +31,10 @@ class AuthlibHTTPError(AuthlibBaseError):
     #: HTTP status code
     status_code = 400
 
-    def __init__(self, error=None, description=None, uri=None,
-                 status_code=None):
+    def __init__(
+        self, error=None, description=None, uri=None,
+        status_code=None,
+    ):
         super(AuthlibHTTPError, self).__init__(error, description, uri)
         if status_code is not None:
             self.status_code = status_code

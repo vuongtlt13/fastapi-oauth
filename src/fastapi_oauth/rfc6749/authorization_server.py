@@ -1,10 +1,5 @@
 from .authenticate_client import ClientAuthentication
-from .errors import (
-    OAuth2Error,
-    InvalidScopeError,
-    UnsupportedResponseTypeError,
-    UnsupportedGrantTypeError,
-)
+from .errors import InvalidScopeError, OAuth2Error, UnsupportedGrantTypeError, UnsupportedResponseTypeError
 from .util import scope_to_list
 
 
@@ -33,8 +28,10 @@ class AuthorizationServer(object):
         """Define function to save the generated token into database."""
         raise NotImplementedError()
 
-    def generate_token(self, grant_type, client, user=None, scope=None,
-                       expires_in=None, include_refresh_token=True):
+    def generate_token(
+        self, grant_type, client, user=None, scope=None,
+        expires_in=None, include_refresh_token=True,
+    ):
         """Generate the token dict.
 
         :param grant_type: current requested grant_type.
@@ -55,7 +52,8 @@ class AuthorizationServer(object):
 
         return func(
             grant_type=grant_type, client=client, user=user, scope=scope,
-            expires_in=expires_in, include_refresh_token=include_refresh_token)
+            expires_in=expires_in, include_refresh_token=include_refresh_token,
+        )
 
     def register_token_generator(self, grant_type, func):
         """Register a function as token generator for the given ``grant_type``.

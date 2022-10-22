@@ -6,8 +6,10 @@
 
     .. _`Section 7`: https://tools.ietf.org/html/rfc6749#section-7
 """
-from .util import scope_to_list
+from sqlalchemy.ext.asyncio import AsyncSession
+
 from .errors import MissingAuthorizationError, UnsupportedTokenTypeError
+from .util import scope_to_list
 
 
 class TokenValidator(object):
@@ -37,13 +39,14 @@ class TokenValidator(object):
 
         return True
 
-    def authenticate_token(self, token_string):
+    async def authenticate_token(self, token_string, session: AsyncSession):
         """A method to query token from database with the given token string.
         Developers MUST re-implement this method. For instance::
 
             def authenticate_token(self, token_string):
                 return get_token_from_database(token_string)
 
+        :param session: async SQLAlchemy session
         :param token_string: A string to represent the access_token.
         :return: token
         """
@@ -51,7 +54,7 @@ class TokenValidator(object):
 
     def validate_request(self, request):
         """A method to validate if the HTTP request is valid or not. Developers MUST
-        re-implement this method.  For instance, your server requires a
+        re-implement this method.  For instance, your server requires an
         "X-Device-Version" in the header::
 
             def validate_request(self, request):

@@ -1,20 +1,14 @@
-from authlib.common.urls import (
-    urlparse,
-    add_params_to_uri,
-    add_params_to_qs,
-)
 from authlib.common.encoding import to_unicode
-from .errors import (
-    MissingCodeException,
-    MissingTokenException,
-    MissingTokenTypeException,
-    MismatchingStateException,
-)
+from authlib.common.urls import add_params_to_qs, add_params_to_uri, urlparse
+
+from .errors import MismatchingStateException, MissingCodeException, MissingTokenException, MissingTokenTypeException
 from .util import list_to_scope
 
 
-def prepare_grant_uri(uri, client_id, response_type, redirect_uri=None,
-                      scope=None, state=None, **kwargs):
+def prepare_grant_uri(
+    uri, client_id, response_type, redirect_uri=None,
+    scope=None, state=None, **kwargs
+):
     """Prepare the authorization grant request URI.
 
     The client constructs the request URI by adding the following
@@ -49,7 +43,7 @@ def prepare_grant_uri(uri, client_id, response_type, redirect_uri=None,
     """
     params = [
         ('response_type', response_type),
-        ('client_id', client_id)
+        ('client_id', client_id),
     ]
 
     if redirect_uri:

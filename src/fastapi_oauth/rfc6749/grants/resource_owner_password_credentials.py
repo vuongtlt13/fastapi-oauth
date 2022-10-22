@@ -1,9 +1,9 @@
 import logging
+
+from sqlalchemy.ext.asyncio import AsyncSession
+
+from ..errors import InvalidRequestError, UnauthorizedClientError
 from .base import BaseGrant, TokenEndpointMixin
-from ..errors import (
-    UnauthorizedClientError,
-    InvalidRequestError,
-)
 
 log = logging.getLogger(__name__)
 
@@ -44,7 +44,7 @@ class ResourceOwnerPasswordCredentialsGrant(BaseGrant, TokenEndpointMixin):
     """
     GRANT_TYPE = 'password'
 
-    def validate_token_request(self):
+    async def validate_token_request(self, session: AsyncSession):
         """The client makes a request to the token endpoint by adding the
         following parameters using the "application/x-www-form-urlencoded"
         format per Appendix B with a character encoding of UTF-8 in the HTTP
@@ -96,9 +96,10 @@ class ResourceOwnerPasswordCredentialsGrant(BaseGrant, TokenEndpointMixin):
             raise InvalidRequestError('Missing "password" in request.')
 
         log.debug('Authenticate user of %r', params['username'])
-        user = self.authenticate_user(
+        user = await self.authenticate_user(
             params['username'],
-            params['password']
+            params['password'],
+            session,
         )
         if not user:
             raise InvalidRequestError(
@@ -108,7 +109,7 @@ class ResourceOwnerPasswordCredentialsGrant(BaseGrant, TokenEndpointMixin):
         self.request.user = user
         self.validate_requested_scope()
 
-    def create_token_response(self):
+    async def create_token_response(self, session: AsyncSession):
         """If the access token request is valid and authorized, the
         authorization server issues an access token and optional refresh
         token as described in Section 5.1.  If the request failed client
@@ -142,7 +143,7 @@ class ResourceOwnerPasswordCredentialsGrant(BaseGrant, TokenEndpointMixin):
         self.execute_hook('process_token', token=token)
         return 200, token, self.TOKEN_RESPONSE_HEADER
 
-    def authenticate_user(self, username, password):
+    async def authenticate_user(self, username, password, session: AsyncSession):
         """validate the resource owner password credentials using its
         existing password validation algorithm::
 
