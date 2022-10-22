@@ -1,19 +1,15 @@
 import functools
 from contextlib import contextmanager
-from flask import json
+
+from authlib.oauth2 import OAuth2Error
+from authlib.oauth2 import ResourceProtector as _ResourceProtector
+from authlib.oauth2.rfc6749 import HttpRequest, MissingAuthorizationError
+from flask import _app_ctx_stack, json
 from flask import request as _req
-from flask import _app_ctx_stack
 from werkzeug.local import LocalProxy
-from authlib.oauth2 import (
-    OAuth2Error,
-    ResourceProtector as _ResourceProtector
-)
-from authlib.oauth2.rfc6749 import (
-    MissingAuthorizationError,
-    HttpRequest,
-)
-from .signals import token_authenticated
+
 from .errors import raise_http_exception
+from .signals import token_authenticated
 
 
 class ResourceProtector(_ResourceProtector):
@@ -71,7 +67,7 @@ class ResourceProtector(_ResourceProtector):
             _req.method,
             _req.full_path,
             _req.data,
-            _req.headers
+            _req.headers,
         )
         request.req = _req
         # backward compatible

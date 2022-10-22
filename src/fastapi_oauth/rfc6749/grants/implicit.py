@@ -1,11 +1,9 @@
 import logging
+
 from authlib.common.urls import add_params_to_uri
-from .base import BaseGrant, AuthorizationEndpointMixin
-from ..errors import (
-    OAuth2Error,
-    UnauthorizedClientError,
-    AccessDeniedError,
-)
+
+from ..errors import AccessDeniedError, OAuth2Error, UnauthorizedClientError
+from .base import AuthorizationEndpointMixin, BaseGrant
 
 log = logging.getLogger(__name__)
 
@@ -124,7 +122,8 @@ class ImplicitGrant(BaseGrant, AuthorizationEndpointMixin):
         log.debug('Validate authorization request of %r', client)
 
         redirect_uri = self.validate_authorization_redirect_uri(
-            self.request, client)
+            self.request, client,
+        )
 
         response_type = self.request.response_type
         if not client.check_response_type(response_type):
@@ -225,5 +224,5 @@ class ImplicitGrant(BaseGrant, AuthorizationEndpointMixin):
             raise AccessDeniedError(
                 state=state,
                 redirect_uri=redirect_uri,
-                redirect_fragment=True
+                redirect_fragment=True,
             )

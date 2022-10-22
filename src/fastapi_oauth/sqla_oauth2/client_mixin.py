@@ -1,9 +1,8 @@
 import secrets
 
-from sqlalchemy import Column, String, Text, Integer
-from authlib.common.encoding import json_loads, json_dumps
-from authlib.oauth2.rfc6749 import ClientMixin
-from authlib.oauth2.rfc6749 import scope_to_list, list_to_scope
+from authlib.common.encoding import json_dumps, json_loads
+from authlib.oauth2.rfc6749 import ClientMixin, list_to_scope, scope_to_list
+from sqlalchemy import Column, Integer, String, Text
 
 
 class OAuth2ClientMixin(ClientMixin):
@@ -48,7 +47,7 @@ class OAuth2ClientMixin(ClientMixin):
     def token_endpoint_auth_method(self):
         return self.client_metadata.get(
             'token_endpoint_auth_method',
-            'client_secret_basic'
+            'client_secret_basic',
         )
 
     @property

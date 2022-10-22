@@ -6,12 +6,12 @@
 """
 
 import re
+import urllib.parse as urlparse
 from urllib.parse import quote as _quote
 from urllib.parse import unquote as _unquote
 from urllib.parse import urlencode as _urlencode
-import urllib.parse as urlparse
 
-from .encoding import to_unicode, to_bytes
+from .encoding import to_bytes, to_unicode
 
 always_safe = (
     'ABCDEFGHIJKLMNOPQRSTUVWXYZ'
@@ -40,11 +40,13 @@ def url_decode(query):
     """
     # Check if query contains invalid characters
     if query and not set(query) <= urlencoded:
-        error = ("Error trying to decode a non urlencoded string. "
-                 "Found invalid characters: %s "
-                 "in the string: '%s'. "
-                 "Please ensure the request/response body is "
-                 "x-www-form-urlencoded.")
+        error = (
+            'Error trying to decode a non urlencoded string. '
+            'Found invalid characters: %s '
+            "in the string: '%s'. "
+            'Please ensure the request/response body is '
+            'x-www-form-urlencoded.'
+        )
         raise ValueError(error % (set(query) - urlencoded, query))
 
     # Check for correctly hex encoded values using a regular expression

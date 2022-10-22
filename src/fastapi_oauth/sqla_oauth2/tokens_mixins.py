@@ -1,9 +1,7 @@
 import time
-from sqlalchemy import Column, String, Text, Integer
-from authlib.oauth2.rfc6749 import (
-    TokenMixin,
-    AuthorizationCodeMixin,
-)
+
+from authlib.oauth2.rfc6749 import AuthorizationCodeMixin, TokenMixin
+from sqlalchemy import Column, Integer, String, Text
 
 
 class OAuth2AuthorizationCodeMixin(AuthorizationCodeMixin):
@@ -15,7 +13,7 @@ class OAuth2AuthorizationCodeMixin(AuthorizationCodeMixin):
     nonce = Column(Text)
     auth_time = Column(
         Integer, nullable=False,
-        default=lambda: int(time.time())
+        default=lambda: int(time.time()),
     )
 
     code_challenge = Column(Text)
@@ -44,7 +42,7 @@ class OAuth2TokenMixin(TokenMixin):
     refresh_token = Column(String(255), index=True)
     scope = Column(Text, default='')
     issued_at = Column(
-        Integer, nullable=False, default=lambda: int(time.time())
+        Integer, nullable=False, default=lambda: int(time.time()),
     )
     access_token_revoked_at = Column(Integer, nullable=False, default=0)
     refresh_token_revoked_at = Column(Integer, nullable=False, default=0)

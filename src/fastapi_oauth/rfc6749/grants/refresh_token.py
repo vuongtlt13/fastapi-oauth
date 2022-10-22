@@ -9,14 +9,13 @@
 """
 
 import logging
-from .base import BaseGrant, TokenEndpointMixin
+
+from sqlalchemy.ext.asyncio import AsyncSession
+
+from ..errors import InvalidGrantError, InvalidRequestError, InvalidScopeError, UnauthorizedClientError
 from ..util import scope_to_list
-from ..errors import (
-    InvalidRequestError,
-    InvalidScopeError,
-    InvalidGrantError,
-    UnauthorizedClientError,
-)
+from .base import BaseGrant, TokenEndpointMixin
+
 log = logging.getLogger(__name__)
 
 
@@ -66,7 +65,7 @@ class RefreshTokenGrant(BaseGrant, TokenEndpointMixin):
         if not original_scope.issuperset(set(scope_to_list(scope))):
             raise InvalidScopeError()
 
-    def validate_token_request(self):
+    async def validate_token_request(self, session: AsyncSession):
         """If the authorization server issued a refresh token to the client, the
         client makes a refresh request to the token endpoint by adding the
         following parameters using the "application/x-www-form-urlencoded"
@@ -106,14 +105,14 @@ class RefreshTokenGrant(BaseGrant, TokenEndpointMixin):
         self._validate_token_scope(token)
         self.request.credential = token
 
-    def create_token_response(self):
+    async def create_token_response(self, session: AsyncSession):
         """If valid and authorized, the authorization server issues an access
         token as described in Section 5.1.  If the request failed
         verification or is invalid, the authorization server returns an error
         response as described in Section 5.2.
         """
         credential = self.request.credential
-        user = self.authenticate_user(credential)
+        user = self.authenticate_user(credential, session)
         if not user:
             raise InvalidRequestError('There is no "user" for this token.')
 
@@ -155,13 +154,14 @@ class RefreshTokenGrant(BaseGrant, TokenEndpointMixin):
         """
         raise NotImplementedError()
 
-    def authenticate_user(self, credential):
+    async def authenticate_user(self, credential, session: AsyncSession):
         """Authenticate the user related to this credential. Developers MUST
         implement this method in subclass::
 
             def authenticate_user(self, credential):
                 return User.query.get(credential.user_id)
 
+        :param session: async session for database connection
         :param credential: Token object
         :return: user
         """

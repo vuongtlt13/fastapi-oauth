@@ -9,42 +9,41 @@
     https://tools.ietf.org/html/rfc6749
 """
 
-from .wrappers import OAuth2Request, OAuth2Token, HttpRequest
-from .errors import (
-    OAuth2Error,
+from .authenticate_client import ClientAuthentication
+from .authorization_server import AuthorizationServer
+from .errors import (  # exceptions for clients
     AccessDeniedError,
-    MissingAuthorizationError,
-    InvalidGrantError,
+    InsecureTransportError,
     InvalidClientError,
+    InvalidGrantError,
     InvalidRequestError,
     InvalidScopeError,
-    InsecureTransportError,
-    UnauthorizedClientError,
-    UnsupportedResponseTypeError,
-    UnsupportedGrantTypeError,
-    UnsupportedTokenTypeError,
-    # exceptions for clients
+    MismatchingStateException,
+    MissingAuthorizationError,
     MissingCodeException,
     MissingTokenException,
     MissingTokenTypeException,
-    MismatchingStateException,
+    OAuth2Error,
+    UnauthorizedClientError,
+    UnsupportedGrantTypeError,
+    UnsupportedResponseTypeError,
+    UnsupportedTokenTypeError,
 )
-from .models import ClientMixin, AuthorizationCodeMixin, TokenMixin
-from .authenticate_client import ClientAuthentication
-from .authorization_server import AuthorizationServer
+from .grants import (
+    AuthorizationCodeGrant,
+    AuthorizationEndpointMixin,
+    BaseGrant,
+    ClientCredentialsGrant,
+    ImplicitGrant,
+    RefreshTokenGrant,
+    ResourceOwnerPasswordCredentialsGrant,
+    TokenEndpointMixin,
+)
+from .models import AuthorizationCodeMixin, ClientMixin, TokenMixin
 from .resource_protector import ResourceProtector, TokenValidator
 from .token_endpoint import TokenEndpoint
-from .grants import (
-    BaseGrant,
-    AuthorizationEndpointMixin,
-    TokenEndpointMixin,
-    AuthorizationCodeGrant,
-    ImplicitGrant,
-    ResourceOwnerPasswordCredentialsGrant,
-    ClientCredentialsGrant,
-    RefreshTokenGrant,
-)
-from .util import scope_to_list, list_to_scope
+from .util import list_to_scope, scope_to_list
+from .wrappers import HttpRequest, OAuth2Request, OAuth2Token
 
 __all__ = [
     'OAuth2Request', 'OAuth2Token', 'HttpRequest',

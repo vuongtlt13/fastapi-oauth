@@ -1,16 +1,14 @@
-from werkzeug.utils import import_string
-from authlib.oauth2 import (
-    OAuth2Request,
-    HttpRequest,
-    AuthorizationServer as _AuthorizationServer,
-)
-from authlib.oauth2.rfc6750 import BearerTokenGenerator
 from authlib.common.security import generate_token
-from .signals import client_authenticated, token_revoked
-from ..helper import create_oauth_request
-from .setting import OAuthSetting
+from authlib.oauth2 import AuthorizationServer as _AuthorizationServer
+from authlib.oauth2 import HttpRequest, OAuth2Request
+from authlib.oauth2.rfc6750 import BearerTokenGenerator
 from fastapi import FastAPI
 from sqlalchemy.ext.asyncio import AsyncSession
+from werkzeug.utils import import_string
+
+from ..helper import create_oauth_request
+from .setting import OAuthSetting
+from .signals import client_authenticated, token_revoked
 
 
 class AuthorizationServer(_AuthorizationServer):
@@ -68,7 +66,7 @@ class AuthorizationServer(_AuthorizationServer):
         return self._save_token(
             token=token,
             request=request,
-            session=session
+            session=session,
         )
 
     def get_error_uri(self, request, error):
@@ -136,7 +134,7 @@ class AuthorizationServer(_AuthorizationServer):
         return BearerTokenGenerator(
             access_token_generator,
             refresh_token_generator,
-            expires_generator
+            expires_generator,
         )
 
 
