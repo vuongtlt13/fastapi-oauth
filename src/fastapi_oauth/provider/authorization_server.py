@@ -1,12 +1,15 @@
-from authlib.common.security import generate_token
-from authlib.oauth2 import AuthorizationServer as _AuthorizationServer
-from authlib.oauth2 import HttpRequest, OAuth2Request
-from authlib.oauth2.rfc6750 import BearerTokenGenerator
-from fastapi import FastAPI
+import json
+
+from fastapi import Response
 from sqlalchemy.ext.asyncio import AsyncSession
 from werkzeug.utils import import_string
 
+from ..common.security import generate_token
+from ..consts import ACCESS_TOKEN_LENGTH, REFRESH_TOKEN_LENGTH
 from ..helper import create_oauth_request
+from ..rfc6749 import AuthorizationServer as _AuthorizationServer
+from ..rfc6749 import HttpRequest, OAuth2Request
+from ..rfc6750 import BearerTokenGenerator
 from .setting import OAuthSetting
 from .signals import client_authenticated, token_revoked
 
@@ -39,17 +42,16 @@ class AuthorizationServer(_AuthorizationServer):
         server.init_app(app, query_client, save_token)
     """
 
-    def __init__(self, app: FastAPI = None, config: OAuthSetting = None, query_client=None, save_token=None):
+    def __init__(self, config: OAuthSetting = None, query_client=None, save_token=None):
         super(AuthorizationServer, self).__init__()
         self._config = config
         self._query_client = query_client
         self._save_token = save_token
         self._error_uris = None
-        if app is not None:
-            self.init_app(app)
 
-    def init_app(self, app: FastAPI, query_client=None, save_token=None):
+    def init_app(self, config: OAuthSetting = None, query_client=None, save_token=None):
         """Initialize later with FastAPI app instance."""
+        self._config = config
         if query_client is not None:
             self._query_client = query_client
         if save_token is not None:
@@ -59,11 +61,11 @@ class AuthorizationServer(_AuthorizationServer):
         self.scopes_supported = self._config.OAUTH2_SCOPES_SUPPORTED
         self._error_uris = self._config.OAUTH2_ERROR_URIS
 
-    def query_client(self, client_id, session: AsyncSession):
-        return self._query_client(client_id, session)
+    async def query_client(self, client_id, session: AsyncSession):
+        return await self._query_client(client_id, session)
 
-    def save_token(self, token, request, session: AsyncSession):
-        return self._save_token(
+    async def save_token(self, token, request, session: AsyncSession):
+        return await self._save_token(
             token=token,
             request=request,
             session=session,
@@ -83,7 +85,11 @@ class AuthorizationServer(_AuthorizationServer):
     def handle_response(self, status_code, payload, headers):
         if isinstance(payload, dict):
             payload = json.dumps(payload)
-        return Response(payload, status=status_code, headers=headers)
+        return Response(
+            payload,
+            status_code=status_code,
+            headers=headers,
+        )
 
     def send_signal(self, name, *args, **kwargs):
         if name == 'after_authenticate_client':
@@ -91,7 +97,8 @@ class AuthorizationServer(_AuthorizationServer):
         elif name == 'after_revoke_token':
             token_revoked.send(self, *args, **kwargs)
 
-    def create_bearer_token_generator(self, config: OAuthSetting):
+    @classmethod
+    def create_bearer_token_generator(cls, config: OAuthSetting) -> BearerTokenGenerator:
         """Create a generator function for generating ``token`` value. This
         method will create a Bearer Token generator with
         :class:`authlib.oauth2.rfc6750.BearerToken`.
@@ -102,7 +109,7 @@ class AuthorizationServer(_AuthorizationServer):
         2. OAUTH2_REFRESH_TOKEN_GENERATOR: Boolean or import string, default is False.
         3. OAUTH2_TOKEN_EXPIRES_IN: Dict or import string, default is None.
 
-        By default, it will not generate ``refresh_token``, which can be turn on by
+        By default, it will not generate ``refresh_token``, which can be turned on by
         configure ``OAUTH2_REFRESH_TOKEN_GENERATOR``.
 
         Here are some examples of the token generator::
@@ -123,13 +130,13 @@ class AuthorizationServer(_AuthorizationServer):
                 'urn:ietf:params:oauth:grant-type:jwt-bearer': 3600,
             }
         """
-        conf = config.get('OAUTH2_ACCESS_TOKEN_GENERATOR', True)
-        access_token_generator = create_token_generator(conf, 42)
+        conf = config.OAUTH2_ACCESS_TOKEN_GENERATOR
+        access_token_generator = create_token_generator(conf, ACCESS_TOKEN_LENGTH)
 
-        conf = config.get('OAUTH2_REFRESH_TOKEN_GENERATOR', False)
-        refresh_token_generator = create_token_generator(conf, 48)
+        conf = config.OAUTH2_REFRESH_TOKEN_GENERATOR
+        refresh_token_generator = create_token_generator(conf, REFRESH_TOKEN_LENGTH)
 
-        expires_conf = config.get('OAUTH2_TOKEN_EXPIRES_IN')
+        expires_conf = config.OAUTH2_TOKEN_EXPIRES_IN
         expires_generator = create_token_expires_in_generator(expires_conf)
         return BearerTokenGenerator(
             access_token_generator,
@@ -153,7 +160,7 @@ def create_token_expires_in_generator(expires_in_conf=None):
     return expires_in
 
 
-def create_token_generator(token_generator_conf, length=42):
+def create_token_generator(token_generator_conf, length: int):
     if callable(token_generator_conf):
         return token_generator_conf
 
@@ -161,6 +168,6 @@ def create_token_generator(token_generator_conf, length=42):
         return import_string(token_generator_conf)
     elif token_generator_conf is True:
         def token_generator(*args, **kwargs):
-            return generate_token(length)
+            return generate_token(length, *args, **kwargs)
 
         return token_generator
