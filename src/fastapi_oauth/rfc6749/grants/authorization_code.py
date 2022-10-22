@@ -1,6 +1,6 @@
 import logging
-from authlib.common.urls import add_params_to_uri
-from authlib.common.security import generate_token
+from sqlalchemy.ext.asyncio import AsyncSession
+
 from .base import BaseGrant, AuthorizationEndpointMixin, TokenEndpointMixin
 from ..errors import (
     OAuth2Error,
@@ -10,6 +10,10 @@ from ..errors import (
     InvalidRequestError,
     AccessDeniedError,
 )
+from fastapi import Request
+
+from ...common.security import generate_token
+from ...common.urls import add_params_to_uri
 
 log = logging.getLogger(__name__)
 
@@ -107,7 +111,7 @@ class AuthorizationCodeGrant(BaseGrant, AuthorizationEndpointMixin, TokenEndpoin
         """
         return validate_code_authorization_request(self)
 
-    def create_authorization_response(self, redirect_uri, grant_user):
+    async def create_authorization_response(self, redirect_uri, grant_user, session: AsyncSession):
         """If the resource owner grants the access request, the authorization
         server issues an authorization code and delivers it to the client by
         adding the following parameters to the query component of the
@@ -141,6 +145,7 @@ class AuthorizationCodeGrant(BaseGrant, AuthorizationEndpointMixin, TokenEndpoin
 
         .. _`Section 4.1.2`: https://tools.ietf.org/html/rfc6749#section-4.1.2
 
+        :param session: async session for database connection
         :param redirect_uri: Redirect to the given URI for the authorization
         :param grant_user: if resource owner granted the request, pass this
             resource owner, otherwise pass None.
@@ -152,7 +157,7 @@ class AuthorizationCodeGrant(BaseGrant, AuthorizationEndpointMixin, TokenEndpoin
         self.request.user = grant_user
 
         code = self.generate_authorization_code()
-        self.save_authorization_code(code, self.request)
+        await self.save_authorization_code(code, self.request, session)
 
         params = [('code', code)]
         if self.request.state:
@@ -161,7 +166,7 @@ class AuthorizationCodeGrant(BaseGrant, AuthorizationEndpointMixin, TokenEndpoin
         headers = [('Location', uri)]
         return 302, '', headers
 
-    def validate_token_request(self):
+    def validate_token_request(self, session: AsyncSession):
         """The client makes a request to the token endpoint by sending the
         following parameters using the "application/x-www-form-urlencoded"
         format per `Section 4.1.3`_:
@@ -200,6 +205,7 @@ class AuthorizationCodeGrant(BaseGrant, AuthorizationEndpointMixin, TokenEndpoin
             &redirect_uri=https%3A%2F%2Fclient%2Eexample%2Ecom%2Fcb
 
         .. _`Section 4.1.3`: https://tools.ietf.org/html/rfc6749#section-4.1.3
+        :param session: async session for database connection
         """
         # ignore validate for grant_type, since it is validated by
         # check_token_endpoint
@@ -219,7 +225,7 @@ class AuthorizationCodeGrant(BaseGrant, AuthorizationEndpointMixin, TokenEndpoin
         # ensure that the authorization code was issued to the authenticated
         # confidential client, or if the client is public, ensure that the
         # code was issued to "client_id" in the request
-        authorization_code = self.query_authorization_code(code, client)
+        authorization_code = await self.query_authorization_code(code, client, session)
         if not authorization_code:
             raise InvalidGrantError('Invalid "code" in request.')
 
@@ -235,7 +241,7 @@ class AuthorizationCodeGrant(BaseGrant, AuthorizationEndpointMixin, TokenEndpoin
         self.request.credential = authorization_code
         self.execute_hook('after_validate_token_request')
 
-    def create_token_response(self):
+    async def create_token_response(self, session: AsyncSession):
         """If the access token request is valid and authorized, the
         authorization server issues an access token and optional refresh
         token as described in Section 5.1.  If the request client
@@ -266,7 +272,7 @@ class AuthorizationCodeGrant(BaseGrant, AuthorizationEndpointMixin, TokenEndpoin
         client = self.request.client
         authorization_code = self.request.credential
 
-        user = self.authenticate_user(authorization_code)
+        user = await self.authenticate_user(authorization_code, session)
         if not user:
             raise InvalidGrantError('There is no "user" for this code.')
         self.request.user = user
@@ -281,11 +287,11 @@ class AuthorizationCodeGrant(BaseGrant, AuthorizationEndpointMixin, TokenEndpoin
 
         self.save_token(token)
         self.execute_hook('process_token', token=token)
-        self.delete_authorization_code(authorization_code)
+        await self.delete_authorization_code(authorization_code, session)
         return 200, token, self.TOKEN_RESPONSE_HEADER
 
     def generate_authorization_code(self):
-        """"The method to generate "code" value for authorization code data.
+        """The method to generate "code" value for authorization code data.
         Developers may rewrite this method, or customize the code length with::
 
             class MyAuthorizationCodeGrant(AuthorizationCodeGrant):
@@ -293,7 +299,7 @@ class AuthorizationCodeGrant(BaseGrant, AuthorizationEndpointMixin, TokenEndpoin
         """
         return generate_token(self.AUTHORIZATION_CODE_LENGTH)
 
-    def save_authorization_code(self, code, request):
+    async def save_authorization_code(self, code: str, request: Request, session: AsyncSession):
         """Save authorization_code for later use. Developers MUST implement
         it in subclass. Here is an example::
 
@@ -310,44 +316,47 @@ class AuthorizationCodeGrant(BaseGrant, AuthorizationEndpointMixin, TokenEndpoin
         """
         raise NotImplementedError()
 
-    def query_authorization_code(self, code, client):  # pragma: no cover
+    async def query_authorization_code(self, code, client, session: AsyncSession):  # pragma: no cover
         """Get authorization_code from previously savings. Developers MUST
         implement it in subclass::
 
             def query_authorization_code(self, code, client):
                 return Authorization.get(code=code, client_id=client.client_id)
 
+        :param session: async session for database connection
         :param code: a string represent the code.
         :param client: client related to this code.
         :return: authorization_code object
         """
         raise NotImplementedError()
 
-    def delete_authorization_code(self, authorization_code):
+    async def delete_authorization_code(self, authorization_code, session: AsyncSession):
         """Delete authorization code from database or cache. Developers MUST
         implement it in subclass, e.g.::
 
             def delete_authorization_code(self, authorization_code):
                 authorization_code.delete()
 
+        :param session: async session for database connection
         :param authorization_code: the instance of authorization_code
         """
         raise NotImplementedError()
 
-    def authenticate_user(self, authorization_code):
+    async def authenticate_user(self, authorization_code, session: AsyncSession):
         """Authenticate the user related to this authorization_code. Developers
         MUST implement this method in subclass, e.g.::
 
             def authenticate_user(self, authorization_code):
                 return User.query.get(authorization_code.user_id)
 
+        :param session: async session for database connection
         :param authorization_code: AuthorizationCode object
         :return: user
         """
         raise NotImplementedError()
 
 
-def validate_code_authorization_request(grant):
+def validate_code_authorization_request(grant: AuthorizationCodeGrant):
     request = grant.request
     client_id = request.client_id
     log.debug('Validate authorization request of %r', client_id)

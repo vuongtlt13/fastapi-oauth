@@ -1,5 +1,7 @@
-from authlib.consts import default_json_headers
+from sqlalchemy.ext.asyncio import AsyncSession
+
 from ..errors import InvalidRequestError
+from ...consts import default_json_headers
 
 
 class BaseGrant(object):
@@ -104,10 +106,10 @@ class TokenEndpointMixin(object):
         return request.grant_type == cls.GRANT_TYPE and \
                request.method in cls.TOKEN_ENDPOINT_HTTP_METHODS
 
-    def validate_token_request(self):
+    async def validate_token_request(self, session: AsyncSession):
         raise NotImplementedError()
 
-    def create_token_response(self):
+    async def create_token_response(self, session: AsyncSession):
         raise NotImplementedError()
 
 
@@ -143,5 +145,5 @@ class AuthorizationEndpointMixin(object):
     def validate_authorization_request(self):
         raise NotImplementedError()
 
-    def create_authorization_response(self, redirect_uri, grant_user):
+    def create_authorization_response(self, redirect_uri, grant_user, session: AsyncSession):
         raise NotImplementedError()
