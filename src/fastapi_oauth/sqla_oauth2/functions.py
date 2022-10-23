@@ -3,9 +3,10 @@ import time
 from sqlalchemy import select
 from sqlalchemy.ext.asyncio import AsyncSession
 
-from fastapi_oauth import OAuth2TokenMixin
 from fastapi_oauth.rfc6749 import OAuth2Request
-from fastapi_oauth.rfc6749.types import SaveTokenFn, QueryClientFn
+from fastapi_oauth.rfc6749.types import QueryClientFn, SaveTokenFn
+
+from .tokens_mixins import OAuth2TokenMixin
 
 
 def create_query_client_func(client_model) -> QueryClientFn:

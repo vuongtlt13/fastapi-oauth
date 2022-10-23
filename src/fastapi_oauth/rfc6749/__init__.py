@@ -39,11 +39,13 @@ from .grants import (
 from .models import AuthorizationCodeMixin, ClientMixin, TokenMixin
 from .resource_protector import ResourceProtector, TokenValidator
 from .token_endpoint import TokenEndpoint
+from .types import QueryClientFn, QueryTokenFn, SaveTokenFn
 from .util import list_to_scope, scope_to_list
 from .wrappers import OAuth2Request, OAuth2Token
 
 __all__ = [
     'OAuth2Request', 'OAuth2Token',
+    'QueryTokenFn', 'QueryClientFn', 'SaveTokenFn',
     'OAuth2Error',
     'AccessDeniedError',
     'MissingAuthorizationError',

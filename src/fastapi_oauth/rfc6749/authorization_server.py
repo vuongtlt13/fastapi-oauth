@@ -1,9 +1,13 @@
+from typing import Type, Union
+
+from grants import AuthorizationEndpointMixin, BaseGrant, TokenEndpointMixin
 from sqlalchemy.ext.asyncio import AsyncSession
 
-from . import ClientMixin
 from .authenticate_client import ClientAuthentication
 from .errors import InvalidScopeError, OAuth2Error, UnsupportedGrantTypeError, UnsupportedResponseTypeError
+from .models import ClientMixin
 from .util import scope_to_list
+from .wrappers import OAuth2Request
 
 
 class AuthorizationServer(object):
@@ -200,7 +204,7 @@ class AuthorizationServer(object):
                 return _create_grant(grant_cls, extensions, request, self)
         raise UnsupportedResponseTypeError(request.response_type)
 
-    async def get_consent_grant(self, request=None, end_user=None):
+    async def get_consent_grant(self, session: AsyncSession, request=None, end_user=None):
         """Validate current HTTP request for authorization page. This page
         is designed for resource owner to grant or deny the authorization.
         """
@@ -208,10 +212,10 @@ class AuthorizationServer(object):
         request.user = end_user
 
         grant = self.get_authorization_grant(request)
-        grant.validate_consent_request()
+        grant.validate_consent_request(session)
         return grant
 
-    def get_token_grant(self, request):
+    def get_token_grant(self, request: OAuth2Request):
         """Find the token grant for current request.
 
         :param request: OAuth2Request instance.
@@ -239,9 +243,10 @@ class AuthorizationServer(object):
         except OAuth2Error as error:
             return self.handle_error_response(request, error)
 
-    async def create_authorization_response(self, request=None, grant_user=None):
+    async def create_authorization_response(self, session: AsyncSession, request=None, grant_user=None):
         """Validate authorization request and create authorization response.
 
+        :param session: Async SQLAlchemy session
         :param request: HTTP request instance.
         :param grant_user: if granted, it is resource owner. If denied,
             it is None.
@@ -254,15 +259,16 @@ class AuthorizationServer(object):
             return self.handle_error_response(request, error)
 
         try:
-            redirect_uri = grant.validate_authorization_request()
-            args = grant.create_authorization_response(redirect_uri, grant_user)
+            redirect_uri = await grant.validate_authorization_request(session)
+            args = await grant.create_authorization_response(redirect_uri, grant_user, session)
             return self.handle_response(*args)
         except OAuth2Error as error:
             return self.handle_error_response(request, error)
 
-    async def create_token_response(self, request=None):
+    async def create_token_response(self, session: AsyncSession, request=None):
         """Validate token request and create token response.
 
+        :param session: Async SQLAlchemy session
         :param request: HTTP request instance
         """
         request = await self.create_oauth2_request(request)
@@ -272,8 +278,8 @@ class AuthorizationServer(object):
             return self.handle_error_response(request, error)
 
         try:
-            grant.validate_token_request()
-            args = grant.create_token_response()
+            await grant.validate_token_request(session)
+            args = await grant.create_token_response(session)
             return self.handle_response(*args)
         except OAuth2Error as error:
             return self.handle_error_response(request, error)
@@ -282,7 +288,12 @@ class AuthorizationServer(object):
         return self.handle_response(*error(self.get_error_uri(request, error)))
 
 
-def _create_grant(grant_cls, extensions, request, server):
+def _create_grant(
+    grant_cls: Type[Union[BaseGrant, TokenEndpointMixin, AuthorizationEndpointMixin]],
+    extensions,
+    request,
+    server: AuthorizationServer,
+):
     grant = grant_cls(request, server)
     if extensions:
         for ext in extensions:

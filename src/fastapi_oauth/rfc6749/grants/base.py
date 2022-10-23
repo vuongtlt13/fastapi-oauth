@@ -1,7 +1,12 @@
+from typing import TYPE_CHECKING, Union
+
 from sqlalchemy.ext.asyncio import AsyncSession
 
 from ...consts import DEFAULT_JSON_HEADERS
 from ..errors import InvalidRequestError
+
+if TYPE_CHECKING:
+    from ..authorization_server import AuthorizationServer
 
 
 class BaseGrant(object):
@@ -17,11 +22,11 @@ class BaseGrant(object):
     # https://tools.ietf.org/html/rfc4627
     TOKEN_RESPONSE_HEADER = DEFAULT_JSON_HEADERS
 
-    def __init__(self, request, server):
+    def __init__(self, request, server: 'AuthorizationServer'):
         self.prompt = None
         self.redirect_uri = None
         self.request = request
-        self.server = server
+        self.server: 'AuthorizationServer' = server
         self._hooks = {
             'after_validate_authorization_request': set(),
             'after_validate_consent_request': set(),
@@ -77,9 +82,9 @@ class BaseGrant(object):
         )
         return client
 
-    def save_token(self, token):
+    async def save_token(self, token, session: AsyncSession):
         """A method to save token into database."""
-        return self.server.save_token(token, self.request)
+        return await self.server.save_token(token, self.request, session)
 
     def validate_requested_scope(self):
         """Validate if requested scope is supported by Authorization Server."""
@@ -128,7 +133,7 @@ class AuthorizationEndpointMixin(object):
         return request.response_type in cls.RESPONSE_TYPES
 
     @staticmethod
-    def validate_authorization_redirect_uri(request, client):
+    def validate_authorization_redirect_uri(request, client) -> str:
         if request.redirect_uri:
             if not client.check_redirect_uri(request.redirect_uri):
                 raise InvalidRequestError(
@@ -145,13 +150,14 @@ class AuthorizationEndpointMixin(object):
                 )
             return redirect_uri
 
-    def validate_consent_request(self):
-        redirect_uri = self.validate_authorization_request()
+    def validate_consent_request(self: Union[BaseGrant, 'AuthorizationEndpointMixin'], session: AsyncSession):
+        redirect_uri = await self.validate_authorization_request(session)
         self.execute_hook('after_validate_consent_request', redirect_uri)
+        # noinspection PyAttributeOutsideInit
         self.redirect_uri = redirect_uri
 
-    def validate_authorization_request(self):
+    async def validate_authorization_request(self, session: AsyncSession):
         raise NotImplementedError()
 
-    def create_authorization_response(self, redirect_uri, grant_user, session: AsyncSession):
+    async def create_authorization_response(self, redirect_uri: str, grant_user, session: AsyncSession):
         raise NotImplementedError()

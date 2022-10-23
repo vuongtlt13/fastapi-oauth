@@ -1,5 +1,7 @@
 import logging
 
+from sqlalchemy.ext.asyncio import AsyncSession
+
 from ...common.urls import add_params_to_uri
 from ..errors import AccessDeniedError, OAuth2Error, UnauthorizedClientError
 from .base import AuthorizationEndpointMixin, BaseGrant
@@ -72,7 +74,7 @@ class ImplicitGrant(BaseGrant, AuthorizationEndpointMixin):
     GRANT_TYPE = 'implicit'
     ERROR_RESPONSE_FRAGMENT = True
 
-    def validate_authorization_request(self):
+    async def validate_authorization_request(self, session: AsyncSession):
         """The client constructs the request URI by adding the following
         parameters to the query component of the authorization endpoint URI
         using the "application/x-www-form-urlencoded" format.
@@ -144,7 +146,7 @@ class ImplicitGrant(BaseGrant, AuthorizationEndpointMixin):
             raise error
         return redirect_uri
 
-    def create_authorization_response(self, redirect_uri, grant_user):
+    async def create_authorization_response(self, redirect_uri: str, grant_user, session: AsyncSession):
         """If the resource owner grants the access request, the authorization
         server issues an access token and delivers it to the client by adding
         the following parameters to the fragment component of the redirection
@@ -183,7 +185,7 @@ class ImplicitGrant(BaseGrant, AuthorizationEndpointMixin):
         .. code-block:: http
 
             HTTP/1.1 302 Found
-            Location: http://example.com/cb#access_token=2YotnFZFEjr1zCsicMWpAA
+            Location: https://example.com/cb#access_token=2YotnFZFEjr1zCsicMWpAA
                    &state=xyz&token_type=example&expires_in=3600
 
         Developers should note that some user-agents do not support the
@@ -195,6 +197,7 @@ class ImplicitGrant(BaseGrant, AuthorizationEndpointMixin):
 
         .. _`Section 4.2.2`: https://tools.ietf.org/html/rfc6749#section-4.2.2
 
+        :param session: Async SQLAlchemy session
         :param redirect_uri: Redirect to the given URI for the authorization
         :param grant_user: if resource owner granted the request, pass this
             resource owner, otherwise pass None.
@@ -210,7 +213,7 @@ class ImplicitGrant(BaseGrant, AuthorizationEndpointMixin):
             )
             log.debug('Grant token %r to %r', token, self.request.client)
 
-            self.save_token(token)
+            await self.save_token(token, session)
             self.execute_hook('process_token', token=token)
             params = [(k, token[k]) for k in token]
             if state:
