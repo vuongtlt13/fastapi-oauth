@@ -1,5 +1,5 @@
 """
-    authlib.oauth2.rfc6749.authenticate_client
+    fastapi_oauth.rfc6749.authenticate_client
     ~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~
 
     Registry of client authentication methods, with 3 built-in methods:

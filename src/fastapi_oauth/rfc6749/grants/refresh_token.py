@@ -1,5 +1,5 @@
 """
-    authlib.oauth2.rfc6749.grants.refresh_token
+    fastapi_oauth.rfc6749.grants.refresh_token
     ~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~
 
     A special grant endpoint for refresh_token grant_type. Refreshing an

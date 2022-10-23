@@ -1,5 +1,5 @@
 """
-    authlib.oauth2.rfc6749.errors
+    fastapi_oauth.rfc6749.errors
     ~~~~~~~~~~~~~~~~~~~~~~~~~~~~~
 
     Implementation for OAuth 2 Error Response. A basic error has

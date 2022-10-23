@@ -1,5 +1,6 @@
 from sqlalchemy.ext.asyncio import AsyncSession
 
+from . import ClientMixin
 from .authenticate_client import ClientAuthentication
 from .errors import InvalidScopeError, OAuth2Error, UnsupportedGrantTypeError, UnsupportedResponseTypeError
 from .util import scope_to_list
@@ -11,6 +12,7 @@ class AuthorizationServer(object):
 
     :param scopes_supported: A list of supported scopes by this authorization server.
     """
+
     def __init__(self, scopes_supported=None):
         self.scopes_supported = scopes_supported
         self._token_generators = {}
@@ -19,10 +21,10 @@ class AuthorizationServer(object):
         self._token_grants = []
         self._endpoints = {}
 
-    async def query_client(self, client_id, session: AsyncSession):
+    async def query_client(self, client_id, session: AsyncSession) -> ClientMixin:
         """Query OAuth client by client_id. The client model class MUST
         implement the methods described by
-        :class:`~authlib.oauth2.rfc6749.ClientMixin`.
+        :class:`fastapi_oauth.rfc6749.ClientMixin`.
         """
         raise NotImplementedError()
 
@@ -160,7 +162,7 @@ class AuthorizationServer(object):
 
     def register_grant(self, grant_cls, extensions=None):
         """Register a grant class into the endpoint registry. Developers
-        can implement the grants in ``authlib.oauth2.rfc6749.grants`` and
+        can implement the grants in ``fastapi_oauth.rfc6749.grants`` and
         register with this method::
 
             class AuthorizationCodeGrant(grants.AuthorizationCodeGrant):
@@ -198,11 +200,11 @@ class AuthorizationServer(object):
                 return _create_grant(grant_cls, extensions, request, self)
         raise UnsupportedResponseTypeError(request.response_type)
 
-    def get_consent_grant(self, request=None, end_user=None):
+    async def get_consent_grant(self, request=None, end_user=None):
         """Validate current HTTP request for authorization page. This page
         is designed for resource owner to grant or deny the authorization.
         """
-        request = self.create_oauth2_request(request)
+        request = await self.create_oauth2_request(request)
         request.user = end_user
 
         grant = self.get_authorization_grant(request)
@@ -237,7 +239,7 @@ class AuthorizationServer(object):
         except OAuth2Error as error:
             return self.handle_error_response(request, error)
 
-    def create_authorization_response(self, request=None, grant_user=None):
+    async def create_authorization_response(self, request=None, grant_user=None):
         """Validate authorization request and create authorization response.
 
         :param request: HTTP request instance.
@@ -245,7 +247,7 @@ class AuthorizationServer(object):
             it is None.
         :returns: Response
         """
-        request = self.create_oauth2_request(request)
+        request = await self.create_oauth2_request(request)
         try:
             grant = self.get_authorization_grant(request)
         except UnsupportedResponseTypeError as error:
@@ -258,12 +260,12 @@ class AuthorizationServer(object):
         except OAuth2Error as error:
             return self.handle_error_response(request, error)
 
-    def create_token_response(self, request=None):
+    async def create_token_response(self, request=None):
         """Validate token request and create token response.
 
         :param request: HTTP request instance
         """
-        request = self.create_oauth2_request(request)
+        request = await self.create_oauth2_request(request)
         try:
             grant = self.get_token_grant(request)
         except UnsupportedGrantTypeError as error:

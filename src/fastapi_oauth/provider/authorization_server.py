@@ -1,18 +1,20 @@
 import json
+from typing import Optional, Dict
 
 from fastapi import Response
 from sqlalchemy.ext.asyncio import AsyncSession
 from starlette.requests import Request
 from werkzeug.utils import import_string
 
+from .setting import OAuthSetting
+from .signals import client_authenticated, token_revoked
 from ..common.security import generate_token
 from ..consts import ACCESS_TOKEN_LENGTH, REFRESH_TOKEN_LENGTH
 from ..helper import create_oauth_request
 from ..rfc6749 import AuthorizationServer as _AuthorizationServer
-from ..rfc6749 import HttpRequest, OAuth2Request
+from ..rfc6749 import OAuth2Request
+from ..rfc6749.types import QueryClientFn, SaveTokenFn
 from ..rfc6750 import BearerTokenGenerator
-from .setting import OAuthSetting
-from .signals import client_authenticated, token_revoked
 
 
 class AuthorizationServer(_AuthorizationServer):
@@ -43,11 +45,16 @@ class AuthorizationServer(_AuthorizationServer):
         server.init_app(app, query_client, save_token)
     """
 
-    def __init__(self, config: OAuthSetting = None, query_client=None, save_token=None):
+    def __init__(
+        self,
+        config: OAuthSetting = None,
+        query_client: Optional[QueryClientFn] = None,
+        save_token: Optional[SaveTokenFn] = None
+    ):
         super(AuthorizationServer, self).__init__()
         self._config = config
-        self._query_client = query_client
-        self._save_token = save_token
+        self._query_client: Optional[QueryClientFn] = query_client
+        self._save_token: Optional[SaveTokenFn] = save_token
         self._error_uris = None
 
     def init_app(self, config: OAuthSetting = None, query_client=None, save_token=None):
@@ -65,12 +72,8 @@ class AuthorizationServer(_AuthorizationServer):
     async def query_client(self, client_id, session: AsyncSession):
         return await self._query_client(client_id, session)
 
-    async def save_token(self, token, request, session: AsyncSession):
-        return await self._save_token(
-            token=token,
-            request=request,
-            session=session,
-        )
+    async def save_token(self, token: Dict, request: OAuth2Request, session: AsyncSession):
+        return await self._save_token(token, request, session)
 
     def get_error_uri(self, request, error):
         if self._error_uris:

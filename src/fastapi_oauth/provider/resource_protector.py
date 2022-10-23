@@ -5,7 +5,7 @@ from contextlib import contextmanager
 from werkzeug.local import LocalProxy
 
 from ..base import OAuth2Error
-from ..rfc6749 import HttpRequest, MissingAuthorizationError
+from ..rfc6749 import MissingAuthorizationError
 from ..rfc6749 import ResourceProtector as _ResourceProtector
 from .errors import raise_http_exception
 from .signals import token_authenticated
