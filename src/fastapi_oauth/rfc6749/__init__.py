@@ -40,10 +40,10 @@ from .models import AuthorizationCodeMixin, ClientMixin, TokenMixin
 from .resource_protector import ResourceProtector, TokenValidator
 from .token_endpoint import TokenEndpoint
 from .util import list_to_scope, scope_to_list
-from .wrappers import HttpRequest, OAuth2Request, OAuth2Token
+from .wrappers import OAuth2Request, OAuth2Token
 
 __all__ = [
-    'OAuth2Request', 'OAuth2Token', 'HttpRequest',
+    'OAuth2Request', 'OAuth2Token',
     'OAuth2Error',
     'AccessDeniedError',
     'MissingAuthorizationError',

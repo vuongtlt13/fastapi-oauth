@@ -1,5 +1,5 @@
 """
-    authlib.oauth2.rfc6749.resource_protector
+    fastapi_oauth.rfc6749.resource_protector
     ~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~
 
     Implementation of Accessing Protected Resources per `Section 7`_.

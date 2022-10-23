@@ -1,5 +1,5 @@
 """
-    authlib.oauth2.rfc6749.models
+    fastapi_oauth.rfc6749.models
     ~~~~~~~~~~~~~~~~~~~~~~~~~~~~~
 
     This module defines how to construct Client, AuthorizationCode and Token.

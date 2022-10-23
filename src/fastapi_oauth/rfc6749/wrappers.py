@@ -44,8 +44,15 @@ class OAuth2Request(object):
         self.client = None
 
     async def prepare_data(self):
-        json_data = await self._raw_request.json()
-        form_data = await self._raw_request.form()
+        try:
+            json_data = await self._raw_request.json()
+        except:
+            json_data = {}
+
+        try:
+            form_data = await self._raw_request.form()
+        except:
+            form_data = {}
 
         self.data = {
             **self._raw_request.query_params,
@@ -54,7 +61,7 @@ class OAuth2Request(object):
         }
 
     @property
-    def client_id(self):
+    def client_id(self) -> str:
         """The authorization server issues the registered client a client
         identifier -- a unique string representing the registration
         information provided by the client. The value is extracted from
@@ -65,7 +72,7 @@ class OAuth2Request(object):
         return self.data.get('client_id')
 
     @property
-    def response_type(self):
+    def response_type(self) -> str:
         rt = self.data.get('response_type')
         if rt and ' ' in rt:
             # sort multiple response types
@@ -73,17 +80,21 @@ class OAuth2Request(object):
         return rt
 
     @property
-    def grant_type(self):
+    def grant_type(self) -> str:
         return self.data.get('grant_type')
 
     @property
-    def redirect_uri(self):
+    def redirect_uri(self) -> str:
         return self.data.get('redirect_uri')
 
     @property
-    def scope(self):
+    def scope(self) -> str:
         return self.data.get('scope')
 
     @property
-    def state(self):
+    def state(self) -> str:
         return self.data.get('state')
+
+    @property
+    def token_type_hint(self) -> str:
+        return self.data.get('token_type_hint')

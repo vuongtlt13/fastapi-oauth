@@ -1,6 +1,6 @@
 # -*- coding: utf-8 -*-
 """
-    authlib.oauth2.rfc7009
+    fastapi_oauth.rfc7009
     ~~~~~~~~~~~~~~~~~~~~~~
 
     This module represents a direct implementation of
