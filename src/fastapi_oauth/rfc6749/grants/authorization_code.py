@@ -61,7 +61,7 @@ class AuthorizationCodeGrant(BaseGrant, AuthorizationEndpointMixin, TokenEndpoin
     RESPONSE_TYPES = {'code'}
     GRANT_TYPE = 'authorization_code'
 
-    def validate_authorization_request(self):
+    async def validate_authorization_request(self, session: AsyncSession):
         """The client constructs the request URI by adding the following
         parameters to the query component of the authorization endpoint URI
         using the "application/x-www-form-urlencoded" format.
@@ -109,7 +109,7 @@ class AuthorizationCodeGrant(BaseGrant, AuthorizationEndpointMixin, TokenEndpoin
 
         .. _`Section 4.1.1`: https://tools.ietf.org/html/rfc6749#section-4.1.1
         """
-        return validate_code_authorization_request(self)
+        return await validate_code_authorization_request(self, session)
 
     async def create_authorization_response(self, redirect_uri, grant_user, session: AsyncSession):
         """If the resource owner grants the access request, the authorization
@@ -286,7 +286,7 @@ class AuthorizationCodeGrant(BaseGrant, AuthorizationEndpointMixin, TokenEndpoin
         )
         log.debug('Issue token %r to %r', token, client)
 
-        self.save_token(token)
+        await self.save_token(token, session)
         self.execute_hook('process_token', token=token)
         await self.delete_authorization_code(authorization_code, session)
         return 200, token, self.TOKEN_RESPONSE_HEADER
@@ -357,7 +357,7 @@ class AuthorizationCodeGrant(BaseGrant, AuthorizationEndpointMixin, TokenEndpoin
         raise NotImplementedError()
 
 
-def validate_code_authorization_request(grant: AuthorizationCodeGrant):
+async def validate_code_authorization_request(grant: AuthorizationCodeGrant, session: AsyncSession) -> str:
     request = grant.request
     client_id = request.client_id
     log.debug('Validate authorization request of %r', client_id)
@@ -365,7 +365,7 @@ def validate_code_authorization_request(grant: AuthorizationCodeGrant):
     if client_id is None:
         raise InvalidClientError(state=request.state)
 
-    client = grant.server.query_client(client_id)
+    client = await grant.server.query_client(client_id, session)
     if not client:
         raise InvalidClientError(state=request.state)
 
