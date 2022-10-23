@@ -2,6 +2,7 @@ import json
 
 from fastapi import Response
 from sqlalchemy.ext.asyncio import AsyncSession
+from starlette.requests import Request
 from werkzeug.utils import import_string
 
 from ..common.security import generate_token
@@ -76,11 +77,11 @@ class AuthorizationServer(_AuthorizationServer):
             uris = dict(self._error_uris)
             return uris.get(error.error)
 
-    def create_oauth2_request(self, request):
-        return create_oauth_request(request, OAuth2Request)
+    async def create_oauth2_request(self, request: Request):
+        return await create_oauth_request(request, OAuth2Request)
 
-    def create_json_request(self, request):
-        return create_oauth_request(request, HttpRequest, True)
+    async def create_json_request(self, request):
+        return await create_oauth_request(request, OAuth2Request)
 
     def handle_response(self, status_code, payload, headers):
         if isinstance(payload, dict):

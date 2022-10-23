@@ -17,8 +17,8 @@ class TokenEndpoint(object):
         # ``create_endpoint_response``
         return self.create_endpoint_response(request)
 
-    def create_endpoint_request(self, request):
-        return self.server.create_oauth2_request(request)
+    async def create_endpoint_request(self, request):
+        return await self.server.create_oauth2_request(request)
 
     def authenticate_endpoint_client(self, request):
         """Authentication client for endpoint with ``CLIENT_AUTH_METHODS``.
