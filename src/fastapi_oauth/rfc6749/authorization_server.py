@@ -127,7 +127,7 @@ class AuthorizationServer(object):
         """
         raise NotImplementedError()
 
-    def create_oauth2_request(self, request):
+    async def create_oauth2_request(self, request):
         """This method MUST be implemented in framework integrations. It is
         used to create an OAuth2Request instance.
 
@@ -136,7 +136,7 @@ class AuthorizationServer(object):
         """
         raise NotImplementedError()
 
-    def create_json_request(self, request):
+    async def create_json_request(self, request):
         """This method MUST be implemented in framework integrations. It is
         used to create an HttpRequest instance.
 
@@ -220,7 +220,7 @@ class AuthorizationServer(object):
                 return _create_grant(grant_cls, extensions, request, self)
         raise UnsupportedGrantTypeError(request.grant_type)
 
-    def create_endpoint_response(self, name, request=None):
+    async def create_endpoint_response(self, name, request=None):
         """Validate endpoint request and create endpoint response.
 
         :param name: Endpoint name
@@ -231,7 +231,7 @@ class AuthorizationServer(object):
             raise RuntimeError(f'There is no "{name}" endpoint.')
 
         endpoint = self._endpoints[name]
-        request = endpoint.create_endpoint_request(request)
+        request = await endpoint.create_endpoint_request(request)
         try:
             return self.handle_response(*endpoint(request))
         except OAuth2Error as error:

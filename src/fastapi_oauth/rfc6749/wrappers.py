@@ -1,6 +1,7 @@
 import time
 
-from ..common.urls import url_decode, urlparse
+from starlette.requests import Request
+
 from .errors import InsecureTransportError
 
 
@@ -27,25 +28,11 @@ class OAuth2Token(dict):
 
 
 class OAuth2Request(object):
-    def __init__(self, method, uri, body=None, headers=None):
-        InsecureTransportError.check(uri)
-        #: HTTP method
-        self.method = method
-        self.uri = uri
-        self.body = body
-        #: HTTP headers
-        self.headers = headers or {}
+    def __init__(self, request: Request):
+        self._raw_request: Request = request
+        InsecureTransportError.check(str(request.url))
 
-        self.query = urlparse.urlparse(uri).query
-
-        self.args = dict(url_decode(self.query))
-        self.form = self.body or {}
-
-        #: dict of query and body params
-        data = {}
-        data.update(self.args)
-        data.update(self.form)
-        self.data = data
+        self.data = {}
 
         #: authenticate method
         self.auth_method = None
@@ -55,6 +42,16 @@ class OAuth2Request(object):
         self.credential = None
         #: client which sending this request
         self.client = None
+
+    async def prepare_data(self):
+        json_data = await self._raw_request.json()
+        form_data = await self._raw_request.form()
+
+        self.data = {
+            **self._raw_request.query_params,
+            **form_data,
+            **json_data,
+        }
 
     @property
     def client_id(self):
@@ -90,14 +87,3 @@ class OAuth2Request(object):
     @property
     def state(self):
         return self.data.get('state')
-
-
-class HttpRequest(object):
-    def __init__(self, method, uri, data=None, headers=None):
-        self.method = method
-        self.uri = uri
-        self.data = data
-        self.headers = headers or {}
-        self.user = None
-        # the framework request instance
-        self.req = None
