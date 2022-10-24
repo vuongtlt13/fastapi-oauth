@@ -3,8 +3,8 @@ from typing import Dict, Tuple
 
 from sqlalchemy.ext.asyncio import AsyncSession
 
-from .base import AuthorizationEndpointMixin, BaseGrant, TokenEndpointMixin
-from ..wrappers import OAuth2Request
+from ...common.security import generate_token
+from ...common.urls import add_params_to_uri
 from ..errors import (
     AccessDeniedError,
     InvalidClientError,
@@ -13,8 +13,8 @@ from ..errors import (
     OAuth2Error,
     UnauthorizedClientError,
 )
-from ...common.security import generate_token
-from ...common.urls import add_params_to_uri
+from ..wrappers import OAuth2Request
+from .base import AuthorizationEndpointMixin, BaseGrant, TokenEndpointMixin
 
 log = logging.getLogger(__name__)
 
@@ -116,7 +116,7 @@ class AuthorizationCodeGrant(BaseGrant, AuthorizationEndpointMixin, TokenEndpoin
         self,
         redirect_uri: str,
         grant_user,
-        session: AsyncSession
+        session: AsyncSession,
     ) -> Tuple[int, str, Dict]:
         """If the resource owner grants the access request, the authorization
         server issues an authorization code and delivers it to the client by
@@ -170,7 +170,7 @@ class AuthorizationCodeGrant(BaseGrant, AuthorizationEndpointMixin, TokenEndpoin
             params.append(('state', self.request.state))
         uri = add_params_to_uri(redirect_uri, params)
         headers = {
-            'Location': uri
+            'Location': uri,
         }
         return 302, '', headers
 

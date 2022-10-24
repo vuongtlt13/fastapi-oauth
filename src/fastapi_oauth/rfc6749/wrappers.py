@@ -1,5 +1,5 @@
 import time
-from typing import TYPE_CHECKING, Optional, Dict
+from typing import TYPE_CHECKING, Dict, Optional
 
 from starlette.requests import Request
 
@@ -47,7 +47,7 @@ class OAuth2Request(object):
         #: authorization_code or token model instance
         self.credential = None
         #: client which sending this request
-        self.client: Optional["ClientMixin"] = None
+        self.client: Optional['ClientMixin'] = None
 
     async def prepare_data(self):
         try:

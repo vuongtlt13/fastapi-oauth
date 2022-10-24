@@ -1,4 +1,4 @@
-from typing import Dict, List, Optional, Union, Any
+from typing import Any, Dict, List, Optional, Union
 
 from pydantic import BaseSettings, validator
 
@@ -10,7 +10,7 @@ class OAuthSetting(BaseSettings):
 
     OAUTH2_SCOPES_SUPPORTED: List[str] = []
 
-    @validator("OAUTH2_SCOPES_SUPPORTED")
+    @validator('OAUTH2_SCOPES_SUPPORTED')
     def unique_and_add_default_scope(cls, value, values, config, field):
         if value is None:
             value = []

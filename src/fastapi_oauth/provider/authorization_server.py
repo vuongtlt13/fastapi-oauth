@@ -1,19 +1,20 @@
 import json
-from typing import Optional, Dict, Union
+from typing import Dict, Optional, Union
 
 from fastapi import Response
 from sqlalchemy.ext.asyncio import AsyncSession
 from starlette.requests import Request
 from werkzeug.utils import import_string
 
-from .setting import OAuthSetting
-from .signals import client_authenticated, token_revoked
 from ..common.security import generate_token
 from ..consts import ACCESS_TOKEN_LENGTH, REFRESH_TOKEN_LENGTH
 from ..helper import create_oauth_request
-from ..rfc6749 import AuthorizationServer as _AuthorizationServer, ClientMixin, OAuth2Request
+from ..rfc6749 import AuthorizationServer as _AuthorizationServer
+from ..rfc6749 import ClientMixin, OAuth2Request
 from ..rfc6749.types import QueryClientFn, SaveTokenFn
 from ..rfc6750 import BearerTokenGenerator
+from .setting import OAuthSetting
+from .signals import client_authenticated, token_revoked
 
 
 class AuthorizationServer(_AuthorizationServer):
@@ -48,7 +49,7 @@ class AuthorizationServer(_AuthorizationServer):
         self,
         config: OAuthSetting = None,
         query_client: Optional[QueryClientFn] = None,
-        save_token: Optional[SaveTokenFn] = None
+        save_token: Optional[SaveTokenFn] = None,
     ):
         super(AuthorizationServer, self).__init__()
         self._config = config
