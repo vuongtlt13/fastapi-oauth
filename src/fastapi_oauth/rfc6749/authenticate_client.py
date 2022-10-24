@@ -41,7 +41,7 @@ class ClientAuthentication(object):
             'client_secret_post': authenticate_client_secret_post,
         }
 
-    def register(self, method, func: AuthenticateClientFn):
+    def register(self, method: str, func: AuthenticateClientFn):
         self._methods[method] = func
 
     async def authenticate(
@@ -86,7 +86,7 @@ async def authenticate_client_secret_basic(
     log.debug(f'Authenticate {client_id} via "client_secret_basic" failed')
 
 
-def authenticate_client_secret_post(
+async def authenticate_client_secret_post(
     query_client: QueryClientFn,
     request: OAuth2Request,
     session: AsyncSession,
@@ -110,7 +110,7 @@ def authenticate_client_secret_post(
     log.debug(f'Authenticate {client_id} via "client_secret_post" failed')
 
 
-def authenticate_none(
+async def authenticate_none(
     query_client: QueryClientFn,
     request: OAuth2Request,
     session: AsyncSession,

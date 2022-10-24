@@ -1,9 +1,13 @@
 #: coding: utf-8
+from typing import Dict, Tuple
+
+from starlette import status
+
 from ..consts import DEFAULT_JSON_HEADERS
 
 
-class AuthlibBaseError(Exception):
-    """Base Exception for all errors in Authlib."""
+class BaseError(Exception):
+    """Base Exception for all errors in library."""
 
     #: short-string error code
     error = None
@@ -12,30 +16,39 @@ class AuthlibBaseError(Exception):
     #: web page that describes this error
     uri = None
 
-    def __init__(self, error=None, description=None, uri=None):
+    def __init__(
+        self,
+        error: str = None,
+        description: str = '',
+        uri: str = None
+    ):
         if error is not None:
-            self.error = error
+            self.error: str = error
+
         if description is not None:
-            self.description = description
+            self.description: str = description
+
         if uri is not None:
-            self.uri = uri
+            self.uri: str = uri
 
         message = '{}: {}'.format(self.error, self.description)
-        super(AuthlibBaseError, self).__init__(message)
+        super(BaseError, self).__init__(message)
 
     def __repr__(self):
         return '<{} "{}">'.format(self.__class__.__name__, self.error)
 
 
-class AuthlibHTTPError(AuthlibBaseError):
-    #: HTTP status code
-    status_code = 400
+class HTTPError(BaseError):
+    status_code: int = status.HTTP_400_BAD_REQUEST
 
     def __init__(
-        self, error=None, description=None, uri=None,
-        status_code=None,
+        self,
+        error: str = None,
+        description: str = None,
+        uri: str = None,
+        status_code: int = None,
     ):
-        super(AuthlibHTTPError, self).__init__(error, description, uri)
+        super(HTTPError, self).__init__(error, description, uri)
         if status_code is not None:
             self.status_code = status_code
 
@@ -52,10 +65,10 @@ class AuthlibHTTPError(AuthlibBaseError):
             error.append(('error_uri', self.uri))
         return error
 
-    def get_headers(self):
+    def get_headers(self) -> Dict:
         return DEFAULT_JSON_HEADERS[:]
 
-    def __call__(self, uri=None):
+    def __call__(self, uri: str = None) -> Tuple[int, Dict, Dict]:
         self.uri = uri
         body = dict(self.get_body())
         headers = self.get_headers()

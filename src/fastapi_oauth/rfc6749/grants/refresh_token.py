@@ -121,7 +121,7 @@ class RefreshTokenGrant(BaseGrant, TokenEndpointMixin):
         log.debug('Issue token %r to %r', token, client)
 
         self.request.user = user
-        self.save_token(token)
+        await self.save_token(token, session)
         self.execute_hook('process_token', token=token)
         await self.revoke_old_credential(credential, session)
         return 200, token, self.TOKEN_RESPONSE_HEADER

@@ -57,7 +57,7 @@ class OAuthSetting(BaseSettings):
     """
     OAUTH2_TOKEN_EXPIRES_IN: Optional[Union[Dict, str]] = None
 
-    class Config:
+    class Config(BaseSettings.Config):
         @classmethod
         def parse_env_var(cls, field_name: str, raw_val: str) -> Any:
             if field_name == 'OAUTH2_SCOPES_SUPPORTED':

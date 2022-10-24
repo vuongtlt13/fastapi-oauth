@@ -1,12 +1,13 @@
 import time
-from typing import TYPE_CHECKING, Dict, Optional
+from typing import TYPE_CHECKING, Dict, Optional, Union, Any
 
 from starlette.requests import Request
 
+from .models import TokenMixin, AuthorizationCodeMixin
 from .errors import InsecureTransportError
 
 if TYPE_CHECKING:
-    from ..sqla_oauth2.client_mixin import ClientMixin
+    from ..sqla_oauth2.client_mixin import OAuth2ClientMixin
 
 
 class OAuth2Token(dict):
@@ -36,18 +37,18 @@ class OAuth2Request(object):
         self._raw_request: Request = request
         InsecureTransportError.check(str(request.url))
 
-        self.data: Dict = {}
-        self.json: Dict = {}
-        self.form: Dict = {}
+        self.data: Dict[str, Optional[Any]] = {}
+        self.json: Dict[str, Optional[Any]] = {}
+        self.form: Dict[str, Optional[Any]] = {}
 
         #: authenticate method
         self.auth_method = None
         #: authenticated user on this request
         self.user = None
         #: authorization_code or token model instance
-        self.credential = None
+        self.credential: Union[Optional[AuthorizationCodeMixin], Optional[TokenMixin]] = None
         #: client which sending this request
-        self.client: Optional['ClientMixin'] = None
+        self.client: Optional["OAuth2ClientMixin"] = None
 
     async def prepare_data(self):
         try:

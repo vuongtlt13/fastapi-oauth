@@ -1,4 +1,4 @@
-from typing import Any, List, Optional, Tuple, Type, Union
+from typing import Any, List, Optional, Tuple, Type, Union, Dict
 
 from sqlalchemy.ext.asyncio import AsyncSession
 from starlette.requests import Request
@@ -8,8 +8,10 @@ from .authenticate_client import ClientAuthentication
 from .errors import InvalidScopeError, OAuth2Error, UnsupportedGrantTypeError, UnsupportedResponseTypeError
 from .grants import AuthorizationEndpointMixin, BaseGrant, TokenEndpointMixin
 from .models import ClientMixin
+from .types import TokenGenerator, AuthenticateClientFn
 from .util import scope_to_list
 from .wrappers import OAuth2Request
+from ..sqla_oauth2.client_mixin import OAuth2ClientMixin
 
 
 class AuthorizationServer(object):
@@ -19,29 +21,34 @@ class AuthorizationServer(object):
     :param scopes_supported: A list of supported scopes by this authorization server.
     """
 
-    def __init__(self, scopes_supported=None):
-        self.scopes_supported = scopes_supported
-        self._token_generators = {}
+    def __init__(self, scopes_supported: List[str] = None):
+        self.supported_scopes: Optional[List[str]] = scopes_supported
+        self._token_generators: Dict[str, TokenGenerator] = {}
         self._client_auth: Optional[ClientAuthentication] = None
         self._authorization_grants: List[Tuple[Any, Any]] = []
         self._token_grants = []
         self._endpoints = {}
 
-    async def query_client(self, client_id, session: AsyncSession) -> ClientMixin:
+    async def query_client(self, client_id: str, session: AsyncSession) -> OAuth2ClientMixin:
         """Query OAuth client by client_id. The client model class MUST
         implement the methods described by
         :class:`fastapi_oauth.rfc6749.ClientMixin`.
         """
         raise NotImplementedError()
 
-    async def save_token(self, token, request, session: AsyncSession):
+    async def save_token(self, token: Dict, request: OAuth2Request, session: AsyncSession):
         """Define function to save the generated token into database."""
         raise NotImplementedError()
 
     def generate_token(
-        self, grant_type, client, user=None, scope=None,
-        expires_in=None, include_refresh_token=True,
-    ):
+        self,
+        grant_type: str,
+        client: ClientMixin,
+        user=None,
+        scope=None,
+        expires_in: int = None,
+        include_refresh_token: bool = True,
+    ) -> Dict:
         """Generate the token dict.
 
         :param grant_type: current requested grant_type.
@@ -53,19 +60,16 @@ class AuthorizationServer(object):
         :return: Token dict
         """
         # generator for a specified grant type
-        func = self._token_generators.get(grant_type)
+        func: TokenGenerator = self._token_generators.get(grant_type)
         if not func:
             # default generator for all grant types
             func = self._token_generators.get('default')
         if not func:
             raise RuntimeError('No configured token generator')
 
-        return func(
-            grant_type=grant_type, client=client, user=user, scope=scope,
-            expires_in=expires_in, include_refresh_token=include_refresh_token,
-        )
+        return func(grant_type, client, user, scope, expires_in, include_refresh_token)
 
-    def register_token_generator(self, grant_type, func):
+    def register_token_generator(self, grant_type: str, func: TokenGenerator):
         """Register a function as token generator for the given ``grant_type``.
         Developers MUST register a default token generator with a special
         ``grant_type=default``::
@@ -96,7 +100,7 @@ class AuthorizationServer(object):
         methods: List[str],
         session: AsyncSession,
         endpoint='token',
-    ) -> ClientMixin:
+    ) -> OAuth2ClientMixin:
         """Authenticate client via HTTP request information with the given
         methods, such as ``client_secret_basic``, ``client_secret_post``.
         """
@@ -109,7 +113,7 @@ class AuthorizationServer(object):
             endpoint=endpoint,
         )
 
-    def register_client_auth_method(self, method, func):
+    def register_client_auth_method(self, method: str, func: AuthenticateClientFn):
         """Add more client auth method. The default methods are:
 
         * none: The client is a public client and does not have a client secret
@@ -146,7 +150,7 @@ class AuthorizationServer(object):
         """
         raise NotImplementedError()
 
-    async def create_oauth2_request(self, request: Request):
+    async def create_oauth2_request(self, request: Request) -> OAuth2Request:
         """This method MUST be implemented in framework integrations. It is
         used to create an OAuth2Request instance.
 
@@ -172,9 +176,9 @@ class AuthorizationServer(object):
         """Validate if requested scope is supported by Authorization Server.
         Developers CAN re-write this method to meet your needs.
         """
-        if scope and self.scopes_supported:
+        if scope and self.supported_scopes:
             scopes = set(scope_to_list(scope))
-            if not set(self.scopes_supported).issuperset(scopes):
+            if not set(self.supported_scopes).issuperset(scopes):
                 raise InvalidScopeError(state=state)
 
     def register_grant(self, grant_cls, extensions=None):
@@ -239,7 +243,7 @@ class AuthorizationServer(object):
                 return _create_grant(grant_cls, extensions, request, self)
         raise UnsupportedGrantTypeError(request.grant_type)
 
-    async def create_endpoint_response(self, name, request=None):
+    async def create_endpoint_response(self, name, request: Request):
         """Validate endpoint request and create endpoint response.
 
         :param name: Endpoint name
@@ -307,7 +311,7 @@ def _create_grant(
     request,
     server: AuthorizationServer,
 ):
-    grant = grant_cls(request, server)
+    grant = grant_cls(request, server)  # type: ignore
     if extensions:
         for ext in extensions:
             ext(grant)

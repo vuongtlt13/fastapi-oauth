@@ -1,10 +1,11 @@
 import time
+from typing import Dict
 
 from sqlalchemy import select
 from sqlalchemy.ext.asyncio import AsyncSession
 
-from fastapi_oauth.rfc6749 import OAuth2Request
-from fastapi_oauth.rfc6749.types import QueryClientFn, SaveTokenFn
+from ..rfc6749.wrappers import OAuth2Request
+from ..rfc6749.types import QueryClientFn, SaveTokenFn
 
 from .tokens_mixins import OAuth2TokenMixin
 
@@ -30,14 +31,14 @@ def create_save_token_func(token_model) -> SaveTokenFn:
     :param token_model: Token model class
     """
 
-    async def save_token(token, request: OAuth2Request, session: AsyncSession):
+    async def save_token(token: Dict, request: OAuth2Request, session: AsyncSession):
         if request.user:
             user_id = request.user.get_user_id()
         else:
             user_id = None
         client = request.client
         item = token_model(
-            client_id=client.client_id,
+            client_id=client.client_id,  # type: ignore
             user_id=user_id,
             **token
         )
