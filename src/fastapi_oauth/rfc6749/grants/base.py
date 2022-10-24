@@ -1,11 +1,11 @@
-from typing import TYPE_CHECKING, Union, Dict, Tuple
+from typing import TYPE_CHECKING, Dict, Tuple, Union
 
 from sqlalchemy.ext.asyncio import AsyncSession
 
-from ..models import ClientMixin
-from ..wrappers import OAuth2Request
 from ...consts import DEFAULT_JSON_HEADERS
 from ..errors import InvalidRequestError
+from ..models import ClientMixin
+from ..wrappers import OAuth2Request
 
 if TYPE_CHECKING:
     from ..authorization_server import AuthorizationServer
@@ -78,7 +78,7 @@ class BaseGrant(object):
         client = await self.server.authenticate_client(
             request=self.request,
             methods=self.TOKEN_ENDPOINT_AUTH_METHODS,
-            session=session
+            session=session,
         )
         self.server.send_signal(
             'after_authenticate_client',
@@ -167,6 +167,6 @@ class AuthorizationEndpointMixin(object):
         self,
         redirect_uri: str,
         grant_user,
-        session: AsyncSession
+        session: AsyncSession,
     ) -> Tuple[int, str, Dict]:
         raise NotImplementedError()

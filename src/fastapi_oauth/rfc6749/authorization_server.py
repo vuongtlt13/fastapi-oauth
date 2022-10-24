@@ -1,13 +1,12 @@
-from typing import Type, Union, List, Optional, Tuple, Any
+from typing import Any, List, Optional, Tuple, Type, Union
 
+from sqlalchemy.ext.asyncio import AsyncSession
 from starlette.requests import Request
 from starlette.responses import Response
 
-from .grants import AuthorizationEndpointMixin, BaseGrant, TokenEndpointMixin
-from sqlalchemy.ext.asyncio import AsyncSession
-
 from .authenticate_client import ClientAuthentication
 from .errors import InvalidScopeError, OAuth2Error, UnsupportedGrantTypeError, UnsupportedResponseTypeError
+from .grants import AuthorizationEndpointMixin, BaseGrant, TokenEndpointMixin
 from .models import ClientMixin
 from .util import scope_to_list
 from .wrappers import OAuth2Request
@@ -96,7 +95,7 @@ class AuthorizationServer(object):
         request: OAuth2Request,
         methods: List[str],
         session: AsyncSession,
-        endpoint='token'
+        endpoint='token',
     ) -> ClientMixin:
         """Authenticate client via HTTP request information with the given
         methods, such as ``client_secret_basic``, ``client_secret_post``.
@@ -107,7 +106,7 @@ class AuthorizationServer(object):
             request=request,
             methods=methods,
             session=session,
-            endpoint=endpoint
+            endpoint=endpoint,
         )
 
     def register_client_auth_method(self, method, func):

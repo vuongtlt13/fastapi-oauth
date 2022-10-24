@@ -1,7 +1,7 @@
 from sqlalchemy.ext.asyncio import AsyncSession
 
-from .wrappers import OAuth2Request
 from .models import ClientMixin
+from .wrappers import OAuth2Request
 
 
 class TokenEndpoint(object):

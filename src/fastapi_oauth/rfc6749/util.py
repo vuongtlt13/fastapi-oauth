@@ -1,6 +1,6 @@
 import base64
 import binascii
-from typing import Optional, Tuple, Any
+from typing import Any, Optional, Tuple
 
 from ..common.encoding import to_unicode
 
