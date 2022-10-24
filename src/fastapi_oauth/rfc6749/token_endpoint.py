@@ -1,5 +1,8 @@
 from sqlalchemy.ext.asyncio import AsyncSession
 
+from .wrappers import OAuth2Request
+from .models import ClientMixin
+
 
 class TokenEndpoint(object):
     #: Endpoint name to be registered
@@ -12,19 +15,16 @@ class TokenEndpoint(object):
     def __init__(self, server):
         self.server = server
 
-    def __call__(self, request):
-        # make it callable for authorization server
-        # ``create_endpoint_response``
-        return self.create_endpoint_response(request)
-
     async def create_endpoint_request(self, request):
         return await self.server.create_oauth2_request(request)
 
-    def authenticate_endpoint_client(self, request):
+    async def authenticate_endpoint_client(self, request: OAuth2Request) -> ClientMixin:
         """Authentication client for endpoint with ``CLIENT_AUTH_METHODS``.
         """
-        client = self.server.authenticate_client(
-            request, self.CLIENT_AUTH_METHODS, self.ENDPOINT_NAME,
+        client = await self.server.authenticate_client(
+            request=request,
+            methods=self.CLIENT_AUTH_METHODS,
+            endpoint=self.ENDPOINT_NAME,
         )
         request.client = client
         return client

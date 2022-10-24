@@ -1,15 +1,31 @@
-from typing import Dict, List, Optional, Union
+from typing import Dict, List, Optional, Union, Any
 
-from pydantic import BaseSettings
+from pydantic import BaseSettings, validator
+
+DEFAULT_SCOPE = 'openid'
 
 
 class OAuthSetting(BaseSettings):
-    OAUTH2_SCOPES_SUPPORTED: List[str] = ['vuong-open-id']
+    OAUTH2_USE_DEFAULT_SCOPE: bool = True
+
+    OAUTH2_SCOPES_SUPPORTED: List[str] = []
+
+    @validator("OAUTH2_SCOPES_SUPPORTED")
+    def unique_and_add_default_scope(cls, value, values, config, field):
+        if value is None:
+            value = []
+
+        if values['OAUTH2_USE_DEFAULT_SCOPE']:
+            value.append(DEFAULT_SCOPE)
+
+        value = list(set(value))
+        return value
+
     OAUTH2_ERROR_URIS: List[str] = ['oauth/error']
 
     """
     OAUTH2_ACCESS_TOKEN_GENERATOR: Boolean or import string, default is True.
-    
+
     Here are some examples of the token generator::
 
         OAUTH2_ACCESS_TOKEN_GENERATOR = 'your_project.generators.gen_token'
@@ -40,3 +56,10 @@ class OAuthSetting(BaseSettings):
         }
     """
     OAUTH2_TOKEN_EXPIRES_IN: Optional[Union[Dict, str]] = None
+
+    class Config:
+        @classmethod
+        def parse_env_var(cls, field_name: str, raw_val: str) -> Any:
+            if field_name == 'OAUTH2_SCOPES_SUPPORTED':
+                return raw_val.split(',')
+            return cls.json_loads(raw_val)
