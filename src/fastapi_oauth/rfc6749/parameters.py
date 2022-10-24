@@ -1,13 +1,17 @@
-from authlib.common.encoding import to_unicode
-from authlib.common.urls import add_params_to_qs, add_params_to_uri, urlparse
-
+from ..common.encoding import to_unicode
+from ..common.urls import add_params_to_uri
 from .errors import MismatchingStateException, MissingCodeException, MissingTokenException, MissingTokenTypeException
 from .util import list_to_scope
 
 
 def prepare_grant_uri(
-    uri, client_id, response_type, redirect_uri=None,
-    scope=None, state=None, **kwargs
+    uri: str,
+    client_id: str,
+    response_type: str,
+    redirect_uri: str=None,
+    scope: str=None,
+    state=None,
+    **kwargs
 ):
     """Prepare the authorization grant request URI.
 

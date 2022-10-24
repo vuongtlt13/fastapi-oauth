@@ -3,7 +3,9 @@ from typing import Dict, Tuple
 
 from starlette import status
 
-from ..consts import DEFAULT_JSON_HEADERS
+from fastapi_oauth.utils.consts import DEFAULT_JSON_HEADERS
+
+from .urls import add_params_to_uri
 
 
 class BaseError(Exception):
@@ -20,16 +22,16 @@ class BaseError(Exception):
         self,
         error: str = None,
         description: str = '',
-        uri: str = None
+        uri: str = None,
     ):
         if error is not None:
-            self.error: str = error
+            self.error = error
 
         if description is not None:
-            self.description: str = description
+            self.description = description
 
         if uri is not None:
-            self.uri: str = uri
+            self.uri = uri
 
         message = '{}: {}'.format(self.error, self.description)
         super(BaseError, self).__init__(message)
@@ -44,11 +46,11 @@ class HTTPError(BaseError):
     def __init__(
         self,
         error: str = None,
-        description: str = None,
+        description: str = '',
         uri: str = None,
         status_code: int = None,
     ):
-        super(HTTPError, self).__init__(error, description, uri)
+        super().__init__(error, description, uri)
         if status_code is not None:
             self.status_code = status_code
 
@@ -66,10 +68,36 @@ class HTTPError(BaseError):
         return error
 
     def get_headers(self) -> Dict:
-        return DEFAULT_JSON_HEADERS[:]
+        return DEFAULT_JSON_HEADERS
 
     def __call__(self, uri: str = None) -> Tuple[int, Dict, Dict]:
         self.uri = uri
         body = dict(self.get_body())
         headers = self.get_headers()
         return self.status_code, body, headers
+
+
+class OAuth2Error(HTTPError):
+    def __init__(
+        self, description=None, uri=None,
+        status_code=None, state=None,
+        redirect_uri=None, redirect_fragment=False, error=None,
+    ):
+        super(OAuth2Error, self).__init__(error, description, uri, status_code)
+        self.state = state
+        self.redirect_uri = redirect_uri
+        self.redirect_fragment = redirect_fragment
+
+    def get_body(self):
+        """Get a list of body."""
+        error = super(OAuth2Error, self).get_body()
+        if self.state:
+            error.append(('state', self.state))
+        return error
+
+    def __call__(self, uri=None):
+        if self.redirect_uri:
+            params = self.get_body()
+            loc = add_params_to_uri(self.redirect_uri, params, self.redirect_fragment)
+            return 302, '', [('Location', loc)]
+        return super(OAuth2Error, self).__call__(uri=uri)

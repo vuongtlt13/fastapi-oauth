@@ -1,44 +1,74 @@
-from typing import Any, List, Optional, Tuple, Type, Union, Dict
+import json
+from typing import Any, Dict, Generic, List, Optional, Tuple, Type, TypeVar, Union
 
 from sqlalchemy.ext.asyncio import AsyncSession
 from starlette.requests import Request
 from starlette.responses import Response
 
+from fastapi_oauth.common.setting import OAuthSetting
+from fastapi_oauth.common.types import AuthenticateClientFn, QueryClientFn, SaveTokenFn, TokenGenerator
+
+from ..provider.signals import client_authenticated, token_revoked
+from ..rfc6750 import BearerTokenGenerator
+from ..utils.consts import ACCESS_TOKEN_LENGTH, REFRESH_TOKEN_LENGTH
+from ..utils.functions import (
+    create_oauth_request,
+    create_query_client_func,
+    create_save_token_func,
+    create_token_expires_in_generator,
+    create_token_generator,
+)
 from .authenticate_client import ClientAuthentication
 from .errors import InvalidScopeError, OAuth2Error, UnsupportedGrantTypeError, UnsupportedResponseTypeError
 from .grants import AuthorizationEndpointMixin, BaseGrant, TokenEndpointMixin
-from .models import ClientMixin
-from .types import TokenGenerator, AuthenticateClientFn
+from .models import ClientMixin, OAuth2ClientBase, OAuth2TokenBase
 from .util import scope_to_list
 from .wrappers import OAuth2Request
-from ..sqla_oauth2.client_mixin import OAuth2ClientMixin
+
+_OAuthClientType = TypeVar('_OAuthClientType', bound=OAuth2ClientBase)
+_OAuthTokenType = TypeVar('_OAuthTokenType', bound=OAuth2TokenBase)
 
 
-class AuthorizationServer(object):
+class AuthorizationServer(Generic[_OAuthClientType, _OAuthTokenType]):
     """Authorization server that handles Authorization Endpoint and Token
     Endpoint.
 
-    :param scopes_supported: A list of supported scopes by this authorization server.
     """
 
-    def __init__(self, scopes_supported: List[str] = None):
-        self.supported_scopes: Optional[List[str]] = scopes_supported
+    def __init__(
+        self,
+        config: OAuthSetting,
+        oauth_client_model_cls: Type[_OAuthClientType],
+        oauth_token_model_cls: Type[_OAuthTokenType],
+        query_client_fn: QueryClientFn = None,
+        save_token_fn: SaveTokenFn = None,
+    ):
+        self.oauth_client_model_cls: Type[_OAuthClientType] = oauth_client_model_cls
+        self.oauth_token_model_cls: Type[_OAuthTokenType] = oauth_token_model_cls
+
+        self.supported_scopes: List[str] = []
         self._token_generators: Dict[str, TokenGenerator] = {}
         self._client_auth: Optional[ClientAuthentication] = None
         self._authorization_grants: List[Tuple[Any, Any]] = []
-        self._token_grants = []
-        self._endpoints = {}
+        self._token_grants = []  # type hint for this
+        self._endpoints = {}  # type hint for this
 
-    async def query_client(self, client_id: str, session: AsyncSession) -> OAuth2ClientMixin:
-        """Query OAuth client by client_id. The client model class MUST
-        implement the methods described by
-        :class:`fastapi_oauth.rfc6749.ClientMixin`.
-        """
-        raise NotImplementedError()
+        self._config = config
+        self._query_client: QueryClientFn = query_client_fn or create_query_client_func(self.oauth_client_model_cls)
+        self._save_token: SaveTokenFn = save_token_fn or create_save_token_func(self.oauth_token_model_cls)
+        self._error_uris: List[Tuple[str, str]] = []
 
-    async def save_token(self, token: Dict, request: OAuth2Request, session: AsyncSession):
-        """Define function to save the generated token into database."""
-        raise NotImplementedError()
+    def init_app(self, config: OAuthSetting, query_client: QueryClientFn = None, save_token: SaveTokenFn = None):
+        """Initialize later with FastAPI app instance."""
+        self._config = config
+        if query_client is not None:
+            self._query_client = query_client
+        if save_token is not None:
+            self._save_token = save_token
+
+        self.register_token_generator('default', self.create_bearer_token_generator(self._config))
+        self.supported_scopes: List[str] = self._config.OAUTH2_SCOPES_SUPPORTED
+        self._error_uris = self._config.OAUTH2_ERROR_URIS
 
     def generate_token(
         self,
@@ -100,7 +130,7 @@ class AuthorizationServer(object):
         methods: List[str],
         session: AsyncSession,
         endpoint='token',
-    ) -> OAuth2ClientMixin:
+    ) -> _OAuthClientType:
         """Authenticate client via HTTP request information with the given
         methods, such as ``client_secret_basic``, ``client_secret_post``.
         """
@@ -139,38 +169,6 @@ class AuthorizationServer(object):
             self._client_auth = ClientAuthentication(self.query_client)
 
         self._client_auth.register(method, func)
-
-    def get_error_uri(self, request, error):
-        """Return a URI for the given error, framework may implement this method."""
-        return None
-
-    def send_signal(self, name, *args, **kwargs):
-        """Framework integration can re-implement this method to support
-        signal system.
-        """
-        raise NotImplementedError()
-
-    async def create_oauth2_request(self, request: Request) -> OAuth2Request:
-        """This method MUST be implemented in framework integrations. It is
-        used to create an OAuth2Request instance.
-
-        :param request: the "request" instance in framework
-        :return: OAuth2Request instance
-        """
-        raise NotImplementedError()
-
-    async def create_json_request(self, request):
-        """This method MUST be implemented in framework integrations. It is
-        used to create an HttpRequest instance.
-
-        :param request: the "request" instance in framework
-        :return: HttpRequest instance
-        """
-        raise NotImplementedError()
-
-    def handle_response(self, status_code, body, headers):
-        """Return HTTP response. Framework MUST implement this function."""
-        raise NotImplementedError()
 
     def validate_requested_scope(self, scope, state=None):
         """Validate if requested scope is supported by Authorization Server.
@@ -304,6 +302,85 @@ class AuthorizationServer(object):
     def handle_error_response(self, request, error):
         return self.handle_response(*error(self.get_error_uri(request, error)))
 
+    async def query_client(self, client_id: str, session: AsyncSession) -> _OAuthClientType:
+        return await self._query_client(client_id, session)
+
+    async def save_token(self, token: Dict, request: OAuth2Request, session: AsyncSession):
+        return await self._save_token(token, request, session)
+
+    def get_error_uri(self, request, error):
+        if self._error_uris:
+            uris = dict(self._error_uris)
+            return uris.get(error.error)
+
+    async def create_oauth2_request(self, request: Request) -> OAuth2Request:
+        return await create_oauth_request(request, OAuth2Request)
+
+    async def create_json_request(self, request):
+        return await create_oauth_request(request, OAuth2Request)
+
+    def handle_response(self, status_code: int, payload: Union[Dict, str], headers: Dict):
+        if isinstance(payload, dict):
+            payload = json.dumps(payload)
+        return Response(
+            payload,
+            status_code=status_code,
+            headers=headers,
+        )
+
+    def send_signal(self, name, *args, **kwargs):
+        if name == 'after_authenticate_client':
+            client_authenticated.send(self, *args, **kwargs)
+        elif name == 'after_revoke_token':
+            token_revoked.send(self, *args, **kwargs)
+
+    @classmethod
+    def create_bearer_token_generator(cls, config: OAuthSetting) -> BearerTokenGenerator:
+        """Create a generator function for generating ``token`` value. This
+        method will create a Bearer Token generator with
+        :class:`fastapi_oauth.rfc6750.BearerToken`.
+
+        Configurable settings:
+
+        1. OAUTH2_ACCESS_TOKEN_GENERATOR: Boolean or import string, default is True.
+        2. OAUTH2_REFRESH_TOKEN_GENERATOR: Boolean or import string, default is False.
+        3. OAUTH2_TOKEN_EXPIRES_IN: Dict or import string, default is None.
+
+        By default, it will not generate ``refresh_token``, which can be turned on by
+        configure ``OAUTH2_REFRESH_TOKEN_GENERATOR``.
+
+        Here are some examples of the token generator::
+
+            OAUTH2_ACCESS_TOKEN_GENERATOR = 'your_project.generators.gen_token'
+
+            # and in module `your_project.generators`, you can define:
+
+            def gen_token(client, grant_type, user, scope):
+                # generate token according to these parameters
+                token = create_random_token()
+                return f'{client.id}-{user.id}-{token}'
+
+        Here is an example of ``OAUTH2_TOKEN_EXPIRES_IN``::
+
+            OAUTH2_TOKEN_EXPIRES_IN = {
+                'authorization_code': 864000,
+                'urn:ietf:params:oauth:grant-type:jwt-bearer': 3600,
+            }
+        """
+        conf = config.OAUTH2_ACCESS_TOKEN_GENERATOR
+        access_token_generator = create_token_generator(conf, ACCESS_TOKEN_LENGTH)
+
+        conf = config.OAUTH2_REFRESH_TOKEN_GENERATOR
+        refresh_token_generator = create_token_generator(conf, REFRESH_TOKEN_LENGTH)
+
+        expires_conf = config.OAUTH2_TOKEN_EXPIRES_IN
+        expires_generator = create_token_expires_in_generator(expires_conf)
+        return BearerTokenGenerator(
+            access_token_generator,
+            refresh_token_generator,
+            expires_generator,
+        )
+
 
 def _create_grant(
     grant_cls: Type[Union[BaseGrant, TokenEndpointMixin, AuthorizationEndpointMixin]],
@@ -311,7 +388,7 @@ def _create_grant(
     request,
     server: AuthorizationServer,
 ):
-    grant = grant_cls(request, server)  # type: ignore
+    grant = grant_cls(request, server)
     if extensions:
         for ext in extensions:
             ext(grant)

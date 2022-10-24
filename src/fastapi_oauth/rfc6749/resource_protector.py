@@ -1,7 +1,4 @@
 """
-    fastapi_oauth.rfc6749.resource_protector
-    ~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~
-
     Implementation of Accessing Protected Resources per `Section 7`_.
 
     .. _`Section 7`: https://tools.ietf.org/html/rfc6749#section-7

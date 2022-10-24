@@ -286,11 +286,11 @@ class AuthorizationCodeGrant(BaseGrant, AuthorizationEndpointMixin, TokenEndpoin
             raise InvalidGrantError('There is no "user" for this code.')
         self.request.user = user
 
-        scope = authorization_code.get_scope()  # type: ignore
+        scope = authorization_code.get_scope()  
         token = self.generate_token(
             user=user,
             scope=scope,
-            include_refresh_token=client.check_grant_type('refresh_token'), # type: ignore
+            include_refresh_token=client.check_grant_type('refresh_token'), 
         )
         log.debug('Issue token %r to %r', token, client)
 
