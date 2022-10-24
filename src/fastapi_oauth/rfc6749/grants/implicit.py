@@ -119,7 +119,7 @@ class ImplicitGrant(BaseGrant, AuthorizationEndpointMixin):
         # check_authorization_endpoint
 
         # The implicit grant type is optimized for public clients
-        client = self.authenticate_token_endpoint_client()
+        client = await self.authenticate_token_endpoint_client(session)
         log.debug('Validate authorization request of %r', client)
 
         redirect_uri = self.validate_authorization_redirect_uri(

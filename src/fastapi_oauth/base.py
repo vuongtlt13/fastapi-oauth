@@ -1,8 +1,8 @@
-from .common.errors import AuthlibHTTPError
+from .common.errors import HTTPError
 from .common.urls import add_params_to_uri
 
 
-class OAuth2Error(AuthlibHTTPError):
+class OAuth2Error(HTTPError):
     def __init__(
         self, description=None, uri=None,
         status_code=None, state=None,

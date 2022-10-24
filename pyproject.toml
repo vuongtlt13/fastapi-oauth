@@ -8,7 +8,7 @@ license = "GNU General Public License v3 (GPLv3)"
 [tool.poetry.dependencies]
 python = "^3.8"
 fastapi = "^0.85.1"
-SQLAlchemy = {version = "^1.4.42", extras = ["asyncio"]}
+SQLAlchemy = { version = "^1.4.42", extras = ["asyncio"] }
 Werkzeug = "^2.2.2"
 pydantic = {version = "^1.10.2", extras = ["dotenv"]}
 
@@ -19,24 +19,41 @@ pre-commit = "^2.20.0"
 twine = "^4.0.1"
 keyring = "^23.9.3"
 
+[tool.poetry.group.dev.dependencies]
+sqlalchemy-stubs = "^0.4"
+sqlalchemy = {version = "^1.4.42", extras = ["mypy"]}
+mypy = "^0.982"
+
 [tool.isort]
 multi_line_output = 3
 include_trailing_comma = true
 force_grid_wrap = 0
 line_length = 120
 
+[tool.mypy]
+
+[[tool.mypy.overrides]]
+module = [
+    "pydantic.*",
+    "starlette.*",
+    "sqlalchemy.ext.asyncio",
+    "sqlalchemy",
+    "fastapi",
+]
+ignore_missing_imports = true
+
 [build-system]
 requires = ["poetry-core>=1.0.0"]
 build-backend = "poetry.core.masonry.api"
 
 [backend]
-default-keyring="keyring.backends.SecretService.Keyring"
+default-keyring = "keyring.backends.SecretService.Keyring"
 
 [project]
 name = "fastapi-oauth"
 version = "0.1.4"
 authors = [
-  { name="Đỗ Quốc Vương", email="vuongtlt13@gmail.com" },
+    { name = "Đỗ Quốc Vương", email = "vuongtlt13@gmail.com" },
 ]
 description = "OAuth2 Provider in FastAPI"
 readme = "README.md"

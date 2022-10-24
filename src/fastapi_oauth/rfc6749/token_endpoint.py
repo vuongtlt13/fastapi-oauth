@@ -1,4 +1,7 @@
+from typing import Optional
+
 from sqlalchemy.ext.asyncio import AsyncSession
+from starlette.requests import Request
 
 from .models import ClientMixin
 from .wrappers import OAuth2Request
@@ -6,7 +9,7 @@ from .wrappers import OAuth2Request
 
 class TokenEndpoint(object):
     #: Endpoint name to be registered
-    ENDPOINT_NAME = None
+    ENDPOINT_NAME: Optional[str] = None
     #: Supported token types
     SUPPORTED_TOKEN_TYPES = ('access_token', 'refresh_token')
     #: Allowed client authenticate methods
@@ -15,7 +18,7 @@ class TokenEndpoint(object):
     def __init__(self, server):
         self.server = server
 
-    async def create_endpoint_request(self, request):
+    async def create_endpoint_request(self, request: Request):
         return await self.server.create_oauth2_request(request)
 
     async def authenticate_endpoint_client(self, request: OAuth2Request) -> ClientMixin:

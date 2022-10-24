@@ -1,4 +1,5 @@
 import logging
+from typing import Tuple, Any, Dict
 
 from sqlalchemy.ext.asyncio import AsyncSession
 
@@ -83,7 +84,7 @@ class ResourceOwnerPasswordCredentialsGrant(BaseGrant, TokenEndpointMixin):
         """
         # ignore validate for grant_type, since it is validated by
         # check_token_endpoint
-        client = self.authenticate_token_endpoint_client()
+        client = await self.authenticate_token_endpoint_client(session)
         log.debug('Validate token request of %r', client)
 
         if not client.check_grant_type(self.GRANT_TYPE):
@@ -109,7 +110,7 @@ class ResourceOwnerPasswordCredentialsGrant(BaseGrant, TokenEndpointMixin):
         self.request.user = user
         self.validate_requested_scope()
 
-    async def create_token_response(self, session: AsyncSession):
+    async def create_token_response(self, session: AsyncSession) -> Tuple[int, Any, Dict]:
         """If the access token request is valid and authorized, the
         authorization server issues an access token and optional refresh
         token as described in Section 5.1.  If the request failed client
@@ -139,7 +140,7 @@ class ResourceOwnerPasswordCredentialsGrant(BaseGrant, TokenEndpointMixin):
         scope = self.request.scope
         token = self.generate_token(user=user, scope=scope)
         log.debug('Issue token %r to %r', token, self.request.client)
-        self.save_token(token)
+        await self.save_token(token, session)
         self.execute_hook('process_token', token=token)
         return 200, token, self.TOKEN_RESPONSE_HEADER
 

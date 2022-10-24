@@ -1,15 +1,16 @@
 import json
-from typing import Dict, Optional, Union
+from typing import Dict, Optional, Union, Callable, Any, Coroutine, List
 
 from fastapi import Response
 from sqlalchemy.ext.asyncio import AsyncSession
 from starlette.requests import Request
 from werkzeug.utils import import_string
 
+from .. import OAuth2ClientMixin
 from ..common.security import generate_token
 from ..consts import ACCESS_TOKEN_LENGTH, REFRESH_TOKEN_LENGTH
 from ..helper import create_oauth_request
-from ..rfc6749 import AuthorizationServer as _AuthorizationServer
+from ..rfc6749 import AuthorizationServer as _AuthorizationServer, ClientMixin
 from ..rfc6749 import ClientMixin, OAuth2Request
 from ..rfc6749.types import QueryClientFn, SaveTokenFn
 from ..rfc6750 import BearerTokenGenerator
@@ -55,9 +56,9 @@ class AuthorizationServer(_AuthorizationServer):
         self._config = config
         self._query_client: Optional[QueryClientFn] = query_client
         self._save_token: Optional[SaveTokenFn] = save_token
-        self._error_uris = None
+        self._error_uris: Optional[List[str]] = None
 
-    def init_app(self, config: OAuthSetting = None, query_client=None, save_token=None):
+    def init_app(self, config: OAuthSetting, query_client: QueryClientFn = None, save_token: SaveTokenFn = None):
         """Initialize later with FastAPI app instance."""
         self._config = config
         if query_client is not None:
@@ -66,21 +67,21 @@ class AuthorizationServer(_AuthorizationServer):
             self._save_token = save_token
 
         self.register_token_generator('default', self.create_bearer_token_generator(self._config))
-        self.scopes_supported = self._config.OAUTH2_SCOPES_SUPPORTED
+        self.supported_scopes: List[str] = self._config.OAUTH2_SCOPES_SUPPORTED
         self._error_uris = self._config.OAUTH2_ERROR_URIS
 
-    async def query_client(self, client_id, session: AsyncSession):
-        return await self._query_client(client_id, session)
+    async def query_client(self, client_id: str, session: AsyncSession) -> OAuth2ClientMixin:
+        return await self._query_client(client_id, session)  # type: ignore
 
     async def save_token(self, token: Dict, request: OAuth2Request, session: AsyncSession):
-        return await self._save_token(token, request, session)
+        return await self._save_token(token, request, session)  # type: ignore
 
     def get_error_uri(self, request, error):
         if self._error_uris:
             uris = dict(self._error_uris)
             return uris.get(error.error)
 
-    async def create_oauth2_request(self, request: Request):
+    async def create_oauth2_request(self, request: Request) -> OAuth2Request:
         return await create_oauth_request(request, OAuth2Request)
 
     async def create_json_request(self, request):

@@ -1,11 +1,11 @@
-from typing import TYPE_CHECKING, Dict, Tuple, Union
+from typing import TYPE_CHECKING, Dict, Tuple, Union, Any, Set, Optional
 
 from sqlalchemy.ext.asyncio import AsyncSession
 
-from ...consts import DEFAULT_JSON_HEADERS
 from ..errors import InvalidRequestError
-from ..models import ClientMixin
 from ..wrappers import OAuth2Request
+from ...consts import DEFAULT_JSON_HEADERS
+from ...sqla_oauth2 import OAuth2ClientMixin
 
 if TYPE_CHECKING:
     from ..authorization_server import AuthorizationServer
@@ -16,7 +16,7 @@ class BaseGrant(object):
     TOKEN_ENDPOINT_AUTH_METHODS = ['client_secret_basic']
 
     #: Designed for which "grant_type"
-    GRANT_TYPE = None
+    GRANT_TYPE: Optional[str] = None
 
     # NOTE: there is no charset for application/json, since
     # application/json should always in UTF-8.
@@ -29,7 +29,7 @@ class BaseGrant(object):
         self.redirect_uri = None
         self.request: OAuth2Request = request
         self.server: 'AuthorizationServer' = server
-        self._hooks = {
+        self._hooks: Dict[str, Set] = {
             'after_validate_authorization_request': set(),
             'after_validate_consent_request': set(),
             'after_validate_token_request': set(),
@@ -37,7 +37,7 @@ class BaseGrant(object):
         }
 
     @property
-    def client(self) -> ClientMixin:
+    def client(self) -> OAuth2ClientMixin:
         return self.request.client
 
     def generate_token(
@@ -55,7 +55,7 @@ class BaseGrant(object):
             include_refresh_token=include_refresh_token,
         )
 
-    async def authenticate_token_endpoint_client(self, session: AsyncSession) -> ClientMixin:
+    async def authenticate_token_endpoint_client(self, session: AsyncSession) -> OAuth2ClientMixin:
         """Authenticate client with the given methods for token endpoint.
 
         For example, the client makes the following HTTP request using TLS:
@@ -114,7 +114,7 @@ class TokenEndpointMixin(object):
     TOKEN_ENDPOINT_HTTP_METHODS = ['POST']
 
     #: Designed for which "grant_type"
-    GRANT_TYPE = None
+    GRANT_TYPE: Optional[str] = None
 
     @classmethod
     def check_token_endpoint(cls, request):
@@ -124,7 +124,7 @@ class TokenEndpointMixin(object):
     async def validate_token_request(self, session: AsyncSession):
         raise NotImplementedError()
 
-    async def create_token_response(self, session: AsyncSession):
+    async def create_token_response(self, session: AsyncSession) -> Tuple[int, Any, Dict]:
         raise NotImplementedError()
 
 
@@ -155,8 +155,8 @@ class AuthorizationEndpointMixin(object):
             return redirect_uri
 
     async def validate_consent_request(self: Union[BaseGrant, 'AuthorizationEndpointMixin'], session: AsyncSession):
-        redirect_uri = await self.validate_authorization_request(session)
-        self.execute_hook('after_validate_consent_request', redirect_uri)
+        redirect_uri = await self.validate_authorization_request(session)  # type: ignore
+        self.execute_hook('after_validate_consent_request', redirect_uri)  # type: ignore
         # noinspection PyAttributeOutsideInit
         self.redirect_uri = redirect_uri
 
