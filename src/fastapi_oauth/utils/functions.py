@@ -1,16 +1,19 @@
 import time
-from typing import Dict
+from typing import Any, Dict, Type
 
 from sqlalchemy import select
 from sqlalchemy.ext.asyncio import AsyncSession
+from starlette.requests import Request
+from werkzeug.utils import import_string
 
+from ..common.security import generate_token
+from ..common.types import QueryClientFn, QueryTokenFn, SaveTokenFn
+from ..rfc6749.models import OAuth2ClientBase, OAuth2TokenBase
 from ..rfc6749.wrappers import OAuth2Request
-from ..rfc6749.types import QueryClientFn, SaveTokenFn
-
-from .tokens_mixins import OAuth2TokenMixin
+from ..rfc6750 import BearerTokenGenerator
 
 
-def create_query_client_func(client_model) -> QueryClientFn:
+def create_query_client_func(client_model: Type[OAuth2ClientBase]) -> QueryClientFn:
     """Create an ``query_client`` function that can be used in authorization
     server.
 
@@ -24,7 +27,7 @@ def create_query_client_func(client_model) -> QueryClientFn:
     return query_client
 
 
-def create_save_token_func(token_model) -> SaveTokenFn:
+def create_save_token_func(token_model: Type[OAuth2TokenBase]) -> SaveTokenFn:
     """Create an ``save_token`` function that can be used in authorization
     server.
 
@@ -38,7 +41,7 @@ def create_save_token_func(token_model) -> SaveTokenFn:
             user_id = None
         client = request.client
         item = token_model(
-            client_id=client.client_id,  # type: ignore
+            client_id=client.client_id,
             user_id=user_id,
             **token
         )
@@ -48,7 +51,7 @@ def create_save_token_func(token_model) -> SaveTokenFn:
     return save_token
 
 
-def create_query_token_func(token_model):
+def create_query_token_func(token_model: Type[OAuth2TokenBase]) -> QueryTokenFn:
     """Create an ``query_token`` function for revocation, introspection
     token endpoints.
 
@@ -70,7 +73,7 @@ def create_query_token_func(token_model):
     return query_token
 
 
-def create_revocation_endpoint(token_model):
+def create_revocation_endpoint(token_model: Type[OAuth2TokenBase]):
     """Create a revocation endpoint class with SQLAlchemy session
     and token model.
 
@@ -84,7 +87,7 @@ def create_revocation_endpoint(token_model):
         async def query_token(self, token: str, token_type_hint: str, session: AsyncSession):
             return await query_token(token, token_type_hint, session)
 
-        async def revoke_token(self, token: OAuth2TokenMixin, request: OAuth2Request, session: AsyncSession):
+        async def revoke_token(self, token: OAuth2TokenBase, request: OAuth2Request, session: AsyncSession):
             now = int(time.time())
             hint = request.token_type_hint
             token.access_token_revoked_at = now
@@ -96,7 +99,7 @@ def create_revocation_endpoint(token_model):
     return _RevocationEndpoint
 
 
-def create_bearer_token_validator(token_model):
+def create_bearer_token_validator(token_model: Type[OAuth2TokenBase]):
     """Create a bearer token validator class with SQLAlchemy session
     and token model.
 
@@ -112,7 +115,44 @@ def create_bearer_token_validator(token_model):
         def request_invalid(self, request):
             return False
 
-        def token_revoked(self, token):
+        def token_revoked(self, token: OAuth2TokenBase):
             return token.revoked
 
     return _BearerTokenValidator
+
+
+async def create_oauth_request(request: Request, request_cls: Type[OAuth2Request]):
+    if isinstance(request, request_cls):
+        return request
+
+    oauth_request = request_cls(request)
+    await oauth_request.prepare_data()
+    return oauth_request
+
+
+def create_token_expires_in_generator(expires_in_conf=None):
+    if isinstance(expires_in_conf, str):
+        return import_string(expires_in_conf)
+
+    data = {}
+    data.update(BearerTokenGenerator.GRANT_TYPES_EXPIRES_IN)
+    if isinstance(expires_in_conf, dict):
+        data.update(expires_in_conf)
+
+    def expires_in(client: Any, grant_type: str):
+        return data.get(grant_type, BearerTokenGenerator.DEFAULT_EXPIRES_IN)
+
+    return expires_in
+
+
+def create_token_generator(token_generator_conf, length: int):
+    if callable(token_generator_conf):
+        return token_generator_conf
+
+    if isinstance(token_generator_conf, str):
+        return import_string(token_generator_conf)
+    elif token_generator_conf is True:
+        def token_generator(*args, **kwargs):
+            return generate_token(length, *args, **kwargs)
+
+        return token_generator

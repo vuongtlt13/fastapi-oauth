@@ -1,11 +1,12 @@
-from typing import TYPE_CHECKING, Dict, Tuple, Union, Any, Set, Optional
+from typing import TYPE_CHECKING, Any, Dict, Optional, Set, Tuple, Union
 
 from sqlalchemy.ext.asyncio import AsyncSession
 
+from fastapi_oauth.utils.consts import DEFAULT_JSON_HEADERS
+
+from ...sqla_oauth2 import OAuth2ClientMixin
 from ..errors import InvalidRequestError
 from ..wrappers import OAuth2Request
-from ...consts import DEFAULT_JSON_HEADERS
-from ...sqla_oauth2 import OAuth2ClientMixin
 
 if TYPE_CHECKING:
     from ..authorization_server import AuthorizationServer
@@ -155,8 +156,8 @@ class AuthorizationEndpointMixin(object):
             return redirect_uri
 
     async def validate_consent_request(self: Union[BaseGrant, 'AuthorizationEndpointMixin'], session: AsyncSession):
-        redirect_uri = await self.validate_authorization_request(session)  # type: ignore
-        self.execute_hook('after_validate_consent_request', redirect_uri)  # type: ignore
+        redirect_uri = await self.validate_authorization_request(session)  
+        self.execute_hook('after_validate_consent_request', redirect_uri)  
         # noinspection PyAttributeOutsideInit
         self.redirect_uri = redirect_uri
 

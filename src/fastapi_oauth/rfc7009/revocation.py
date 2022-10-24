@@ -1,6 +1,7 @@
 from sqlalchemy.ext.asyncio import AsyncSession
 
-from ..consts import DEFAULT_JSON_HEADERS
+from fastapi_oauth.utils.consts import DEFAULT_JSON_HEADERS
+
 from ..rfc6749 import InvalidRequestError, TokenEndpoint, UnsupportedTokenTypeError
 
 

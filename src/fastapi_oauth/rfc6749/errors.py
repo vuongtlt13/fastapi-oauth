@@ -1,42 +1,12 @@
 """
-    fastapi_oauth.rfc6749.errors
-    ~~~~~~~~~~~~~~~~~~~~~~~~~~~~~
-
-    Implementation for OAuth 2 Error Response. A basic error has
-    parameters:
-
-    error
-         REQUIRED.  A single ASCII [USASCII] error code.
-
-    error_description
-         OPTIONAL.  Human-readable ASCII [USASCII] text providing
-         additional information, used to assist the client developer in
-         understanding the error that occurred.
-
-    error_uri
-         OPTIONAL.  A URI identifying a human-readable web page with
-         information about the error, used to provide the client
-         developer with additional information about the error.
-         Values for the "error_uri" parameter MUST conform to the
-         URI-reference syntax and thus MUST NOT include characters
-         outside the set %x21 / %x23-5B / %x5D-7E.
-
-    state
-         REQUIRED if a "state" parameter was present in the client
-         authorization request.  The exact value received from the
-         client.
-
+    Implementation for OAuth 2 Error Response.
     https://tools.ietf.org/html/rfc6749#section-5.2
 
-    :copyright: (c) 2017 by Hsiaoming Yang.
+    :copyright: (c) 2022 by Do Quoc Vuong.
 """
 from fastapi import status
 
-from ..base import OAuth2Error
-from ..common.security import is_secure_transport
-
 __all__ = [
-    'OAuth2Error',
     'InsecureTransportError', 'InvalidRequestError',
     'InvalidClientError', 'UnauthorizedClientError', 'InvalidGrantError',
     'UnsupportedResponseTypeError', 'UnsupportedGrantTypeError',
@@ -46,16 +16,25 @@ __all__ = [
     'MissingTokenTypeException', 'MismatchingStateException',
 ]
 
+from ..common.errors import OAuth2Error
+
 
 class InsecureTransportError(OAuth2Error):
     error = 'insecure_transport'
     description = 'OAuth 2 MUST utilize https.'
 
-    @classmethod
-    def check(cls, uri):
-        """Check and raise InsecureTransportError with the given URI."""
-        if not is_secure_transport(uri):
-            raise cls()
+    # @classmethod
+    # def check(cls, uri):
+    #     """Check and raise InsecureTransportError with the given URI."""
+    #     if not is_secure_transport(uri):
+    #         raise cls()
+    # def is_secure_transport(uri):
+    #     """Check if the uri is over ssl."""
+    #     if os.getenv('AUTHLIB_INSECURE_TRANSPORT'):
+    #         return True
+    #
+    #     uri = uri.lower()
+    #     return uri.startswith(('https://', 'http://localhost:'))
 
 
 class InvalidRequestError(OAuth2Error):
@@ -88,7 +67,7 @@ class InvalidClientError(OAuth2Error):
     status_code = status.HTTP_400_BAD_REQUEST
 
     def get_headers(self):
-        headers = super(InvalidClientError, self).get_headers()
+        headers = super().get_headers()
         if self.status_code == status.HTTP_401_UNAUTHORIZED:
             error_description = self.get_error_description()
             # safe escape
@@ -97,9 +76,7 @@ class InvalidClientError(OAuth2Error):
                 'error="{}"'.format(self.error),
                 'error_description="{}"'.format(error_description),
             ]
-            headers.append(
-                ('WWW-Authenticate', 'Basic ' + ', '.join(extras)),
-            )
+            headers['WWW-Authenticate'] = 'Basic ' + ', '.join(extras)
         return headers
 
 
@@ -175,9 +152,6 @@ class AccessDeniedError(OAuth2Error):
     description = 'The resource owner or authorization server denied the request'
 
 
-# -- below are extended errors -- #
-
-
 class ForbiddenError(OAuth2Error):
     status_code = status.HTTP_401_UNAUTHORIZED
 
@@ -197,9 +171,7 @@ class ForbiddenError(OAuth2Error):
         extras.append('error="{}"'.format(self.error))
         error_description = self.description
         extras.append('error_description="{}"'.format(error_description))
-        headers.append(
-            ('WWW-Authenticate', f'{self.auth_type} ' + ', '.join(extras)),
-        )
+        headers['WWW-Authenticate'] = f'{self.auth_type} ' + ', '.join(extras)
         return headers
 
 

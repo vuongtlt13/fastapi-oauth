@@ -1,7 +1,4 @@
 """
-    fastapi_oauth.rfc6749.authenticate_client
-    ~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~
-
     Registry of client authentication methods, with 3 built-in methods:
 
     1. client_secret_basic
@@ -21,9 +18,10 @@ from typing import Dict, List
 from sqlalchemy.ext.asyncio import AsyncSession
 from starlette import status
 
+from fastapi_oauth.common.types import AuthenticateClientFn, QueryClientFn
+
 from .errors import InvalidClientError
 from .models import ClientMixin
-from .types import AuthenticateClientFn, QueryClientFn
 from .util import extract_basic_authorization
 from .wrappers import OAuth2Request
 

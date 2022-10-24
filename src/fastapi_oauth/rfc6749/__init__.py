@@ -6,6 +6,8 @@
     https://tools.ietf.org/html/rfc6749
 """
 
+from fastapi_oauth.common.types import QueryClientFn, QueryTokenFn, SaveTokenFn
+
 from .authenticate_client import ClientAuthentication
 from .authorization_server import AuthorizationServer
 from .errors import (  # exceptions for clients
@@ -39,7 +41,6 @@ from .grants import (
 from .models import AuthorizationCodeMixin, ClientMixin, TokenMixin
 from .resource_protector import ResourceProtector, TokenValidator
 from .token_endpoint import TokenEndpoint
-from .types import QueryClientFn, QueryTokenFn, SaveTokenFn
 from .util import list_to_scope, scope_to_list
 from .wrappers import OAuth2Request, OAuth2Token
 

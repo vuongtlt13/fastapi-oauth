@@ -1,10 +1,47 @@
 """
-    fastapi_oauth.rfc6749.models
-    ~~~~~~~~~~~~~~~~~~~~~~~~~~~~~
-
     This module defines how to construct Client, AuthorizationCode and Token.
 """
-from ..deprecate import deprecate
+import secrets
+import time
+from typing import Any, Dict, List, Optional, Text
+
+from inflection import pluralize, underscore
+from sqlalchemy import Column, DateTime, Integer, String, func
+from sqlalchemy.orm import as_declarative, declared_attr
+
+from ..common.encoding import json_dumps, json_loads
+from .util import list_to_scope, scope_to_list
+
+
+@as_declarative()
+class Base:
+    id: Any
+    __name__: str
+
+    def __init__(self, **kwargs):
+        for k, v in kwargs.items():
+            setattr(self, k, v)
+        super().__init__()
+
+    # Generate __tablename__ automatically
+    @declared_attr
+    def __tablename__(self) -> str:
+        return underscore(pluralize(self.__name__))
+
+    @declared_attr
+    def created_at(self):
+        return Column(
+            DateTime(timezone=True),
+            server_default=func.now(), default=func.now(),
+            nullable=False,
+        )
+
+    @declared_attr
+    def updated_at(self):
+        return Column(
+            DateTime(timezone=True), server_default=func.now(),
+            default=func.now(), nullable=False, onupdate=func.now(),
+        )
 
 
 class ClientMixin(object):
@@ -109,10 +146,6 @@ class ClientMixin(object):
         """
         raise NotImplementedError()
 
-    def check_token_endpoint_auth_method(self, method):
-        deprecate('Please implement ``check_endpoint_auth_method`` instead.')
-        return self.check_endpoint_auth_method(method, 'token')
-
     def check_response_type(self, response_type):
         """Validate if the client can handle the given response_type. There
         are two response types defined by RFC6749: code and token. For
@@ -146,6 +179,139 @@ class ClientMixin(object):
         raise NotImplementedError()
 
 
+class OAuth2ClientBase(Base, ClientMixin):
+    client_id = Column(String(48), index=True)
+    client_secret = Column(String(120))
+    client_id_issued_at = Column(Integer, nullable=False, default=0)
+    client_secret_expires_at = Column(Integer, nullable=False, default=0)
+    _client_metadata = Column('client_metadata', Text)
+
+    @property
+    def client_info(self):
+        """Implementation for Client Info in OAuth 2.0 Dynamic Client
+        Registration Protocol via `Section 3.2.1`_.
+
+        .. _`Section 3.2.1`: https://tools.ietf.org/html/rfc7591#section-3.2.1
+        """
+        return dict(
+            client_id=self.client_id,
+            client_secret=self.client_secret,
+            client_id_issued_at=self.client_id_issued_at,
+            client_secret_expires_at=self.client_secret_expires_at,
+        )
+
+    @property
+    def client_metadata(self) -> Dict:
+        if 'client_metadata' in self.__dict__:
+            return self.__dict__['client_metadata']
+        if self._client_metadata:
+            data = json_loads(self._client_metadata)
+            self.__dict__['client_metadata'] = data
+            return data
+        return {}
+
+    def set_client_metadata(self, value):
+        self._client_metadata = json_dumps(value)
+
+    @property
+    def redirect_uris(self) -> List[str]:
+        return self.client_metadata.get('redirect_uris', [])
+
+    @property
+    def token_endpoint_auth_method(self) -> str:
+        return self.client_metadata.get(
+            'token_endpoint_auth_method',
+            'client_secret_basic',
+        )
+
+    @property
+    def grant_types(self) -> List[str]:
+        return self.client_metadata.get('grant_types', [])
+
+    @property
+    def response_types(self) -> List[str]:
+        return self.client_metadata.get('response_types', [])
+
+    @property
+    def client_name(self) -> str:
+        return self.client_metadata.get('client_name')
+
+    @property
+    def client_uri(self) -> str:
+        return self.client_metadata.get('client_uri')
+
+    @property
+    def logo_uri(self) -> str:
+        return self.client_metadata.get('logo_uri')
+
+    @property
+    def scope(self) -> str:
+        return self.client_metadata.get('scope', '')
+
+    @property
+    def contacts(self) -> List[str]:
+        return self.client_metadata.get('contacts', [])
+
+    @property
+    def tos_uri(self) -> str:
+        return self.client_metadata.get('tos_uri')
+
+    @property
+    def policy_uri(self) -> str:
+        return self.client_metadata.get('policy_uri')
+
+    @property
+    def jwks_uri(self) -> str:
+        return self.client_metadata.get('jwks_uri')
+
+    @property
+    def jwks(self) -> List:
+        return self.client_metadata.get('jwks', [])
+
+    @property
+    def software_id(self) -> Any:
+        return self.client_metadata.get('software_id')
+
+    @property
+    def software_version(self) -> str:
+        return self.client_metadata.get('software_version')
+
+    def get_client_id(self) -> str:
+        return self.client_id
+
+    def get_default_redirect_uri(self) -> Optional[str]:
+        if self.redirect_uris:
+            return self.redirect_uris[0]
+
+    def get_allowed_scope(self, scope) -> str:
+        if not scope:
+            return ''
+        allowed = set(self.scope.split())
+        scopes = scope_to_list(scope)
+        return list_to_scope([s for s in scopes if s in allowed])
+
+    def check_redirect_uri(self, redirect_uri) -> bool:
+        return redirect_uri in self.redirect_uris
+
+    def has_client_secret(self):
+        return bool(self.client_secret)
+
+    def check_client_secret(self, client_secret):
+        return secrets.compare_digest(self.client_secret, client_secret)
+
+    def check_endpoint_auth_method(self, method, endpoint):
+        if endpoint == 'token':
+            return self.token_endpoint_auth_method == method
+        # TODO
+        return True
+
+    def check_response_type(self, response_type: str):
+        return response_type in self.response_types
+
+    def check_grant_type(self, grant_type: str):
+        return grant_type in self.grant_types
+
+
 class AuthorizationCodeMixin(object):
     def get_redirect_uri(self):
         """A method to get authorization code's ``redirect_uri``.
@@ -169,6 +335,37 @@ class AuthorizationCodeMixin(object):
         :return: scope string
         """
         raise NotImplementedError()
+
+
+class OAuth2AuthorizationCodeBase(Base, AuthorizationCodeMixin):
+    code = Column(String(120), unique=True, nullable=False)
+    client_id = Column(String(48))
+    redirect_uri = Column(Text, default='')
+    response_type = Column(Text, default='')
+    scope = Column(Text, default='')
+    nonce = Column(Text)
+    auth_time = Column(
+        Integer, nullable=False,
+        default=lambda: int(time.time()),
+    )
+
+    code_challenge = Column(Text)
+    code_challenge_method = Column(String(48))
+
+    def is_expired(self):
+        return self.auth_time + 300 < time.time()
+
+    def get_redirect_uri(self):
+        return self.redirect_uri
+
+    def get_scope(self):
+        return self.scope
+
+    def get_auth_time(self):
+        return self.auth_time
+
+    def get_nonce(self):
+        return self.nonce
 
 
 class TokenMixin(object):
@@ -226,3 +423,36 @@ class TokenMixin(object):
         :return: boolean
         """
         return NotImplementedError()
+
+
+class OAuth2TokenBase(Base, TokenMixin):
+    client_id = Column(String(48))
+    token_type = Column(String(40))
+    access_token = Column(String(255), unique=True, nullable=False)
+    refresh_token = Column(String(255), index=True)
+    scope = Column(Text, default='')
+    issued_at = Column(
+        Integer, nullable=False, default=lambda: int(time.time()),
+    )
+    access_token_revoked_at = Column(Integer, nullable=False, default=0)
+    refresh_token_revoked_at = Column(Integer, nullable=False, default=0)
+    expires_in = Column(Integer, nullable=False, default=0)
+
+    def check_client(self, client):
+        return self.client_id == client.get_client_id()
+
+    def get_scope(self):
+        return self.scope
+
+    def get_expires_in(self):
+        return self.expires_in
+
+    def is_revoked(self):
+        return self.access_token_revoked_at or self.refresh_token_revoked_at
+
+    def is_expired(self):
+        if not self.expires_in:
+            return False
+
+        expires_at = self.issued_at + self.expires_in
+        return expires_at < time.time()
