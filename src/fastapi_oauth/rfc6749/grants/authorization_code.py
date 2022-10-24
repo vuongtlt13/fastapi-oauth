@@ -1,10 +1,10 @@
 import logging
+from typing import Dict, Tuple
 
-from fastapi import Request
 from sqlalchemy.ext.asyncio import AsyncSession
 
-from ...common.security import generate_token
-from ...common.urls import add_params_to_uri
+from .base import AuthorizationEndpointMixin, BaseGrant, TokenEndpointMixin
+from ..wrappers import OAuth2Request
 from ..errors import (
     AccessDeniedError,
     InvalidClientError,
@@ -13,7 +13,8 @@ from ..errors import (
     OAuth2Error,
     UnauthorizedClientError,
 )
-from .base import AuthorizationEndpointMixin, BaseGrant, TokenEndpointMixin
+from ...common.security import generate_token
+from ...common.urls import add_params_to_uri
 
 log = logging.getLogger(__name__)
 
@@ -111,7 +112,12 @@ class AuthorizationCodeGrant(BaseGrant, AuthorizationEndpointMixin, TokenEndpoin
         """
         return await validate_code_authorization_request(self, session)
 
-    async def create_authorization_response(self, redirect_uri, grant_user, session: AsyncSession):
+    async def create_authorization_response(
+        self,
+        redirect_uri: str,
+        grant_user,
+        session: AsyncSession
+    ) -> Tuple[int, str, Dict]:
         """If the resource owner grants the access request, the authorization
         server issues an authorization code and delivers it to the client by
         adding the following parameters to the query component of the
@@ -163,7 +169,9 @@ class AuthorizationCodeGrant(BaseGrant, AuthorizationEndpointMixin, TokenEndpoin
         if self.request.state:
             params.append(('state', self.request.state))
         uri = add_params_to_uri(redirect_uri, params)
-        headers = [('Location', uri)]
+        headers = {
+            'Location': uri
+        }
         return 302, '', headers
 
     async def validate_token_request(self, session: AsyncSession):
@@ -211,7 +219,7 @@ class AuthorizationCodeGrant(BaseGrant, AuthorizationEndpointMixin, TokenEndpoin
         # check_token_endpoint
 
         # authenticate the client if client authentication is included
-        client = self.authenticate_token_endpoint_client()
+        client = await self.authenticate_token_endpoint_client(session)
 
         log.debug('Validate token request of %r', client)
         if not client.check_grant_type(self.GRANT_TYPE):
@@ -300,7 +308,7 @@ class AuthorizationCodeGrant(BaseGrant, AuthorizationEndpointMixin, TokenEndpoin
         """
         return generate_token(self.AUTHORIZATION_CODE_LENGTH)
 
-    async def save_authorization_code(self, code: str, request: Request, session: AsyncSession):
+    async def save_authorization_code(self, code: str, request: OAuth2Request, session: AsyncSession):
         """Save authorization_code for later use. Developers MUST implement
         it in subclass. Here is an example::
 

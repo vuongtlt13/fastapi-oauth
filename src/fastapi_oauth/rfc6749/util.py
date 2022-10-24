@@ -1,5 +1,6 @@
 import base64
 import binascii
+from typing import Optional, Tuple, Any
 
 from ..common.encoding import to_unicode
 
@@ -13,7 +14,7 @@ def list_to_scope(scope):
     return to_unicode(scope)
 
 
-def scope_to_list(scope):
+def scope_to_list(scope: Any):
     """Convert a space separated string to a list of scopes."""
     if isinstance(scope, (tuple, list, set)):
         return [to_unicode(s) for s in scope]
@@ -22,7 +23,7 @@ def scope_to_list(scope):
     return scope.strip().split()
 
 
-def extract_basic_authorization(headers):
+def extract_basic_authorization(headers) -> Tuple[Optional[str], Optional[str]]:
     auth = headers.get('Authorization')
     if not auth or ' ' not in auth:
         return None, None

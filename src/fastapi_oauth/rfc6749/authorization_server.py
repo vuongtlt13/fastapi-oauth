@@ -1,6 +1,9 @@
-from typing import Type, Union
+from typing import Type, Union, List, Optional, Tuple, Any
 
-from grants import AuthorizationEndpointMixin, BaseGrant, TokenEndpointMixin
+from starlette.requests import Request
+from starlette.responses import Response
+
+from .grants import AuthorizationEndpointMixin, BaseGrant, TokenEndpointMixin
 from sqlalchemy.ext.asyncio import AsyncSession
 
 from .authenticate_client import ClientAuthentication
@@ -20,8 +23,8 @@ class AuthorizationServer(object):
     def __init__(self, scopes_supported=None):
         self.scopes_supported = scopes_supported
         self._token_generators = {}
-        self._client_auth = None
-        self._authorization_grants = []
+        self._client_auth: Optional[ClientAuthentication] = None
+        self._authorization_grants: List[Tuple[Any, Any]] = []
         self._token_grants = []
         self._endpoints = {}
 
@@ -88,13 +91,24 @@ class AuthorizationServer(object):
         """
         self._token_generators[grant_type] = func
 
-    def authenticate_client(self, request, methods, endpoint='token'):
+    async def authenticate_client(
+        self,
+        request: OAuth2Request,
+        methods: List[str],
+        session: AsyncSession,
+        endpoint='token'
+    ) -> ClientMixin:
         """Authenticate client via HTTP request information with the given
         methods, such as ``client_secret_basic``, ``client_secret_post``.
         """
         if self._client_auth is None and self.query_client:
             self._client_auth = ClientAuthentication(self.query_client)
-        return self._client_auth(request, methods, endpoint)
+        return await self._client_auth.authenticate(
+            request=request,
+            methods=methods,
+            session=session,
+            endpoint=endpoint
+        )
 
     def register_client_auth_method(self, method, func):
         """Add more client auth method. The default methods are:
@@ -133,7 +147,7 @@ class AuthorizationServer(object):
         """
         raise NotImplementedError()
 
-    async def create_oauth2_request(self, request):
+    async def create_oauth2_request(self, request: Request):
         """This method MUST be implemented in framework integrations. It is
         used to create an OAuth2Request instance.
 
@@ -204,7 +218,7 @@ class AuthorizationServer(object):
                 return _create_grant(grant_cls, extensions, request, self)
         raise UnsupportedResponseTypeError(request.response_type)
 
-    async def get_consent_grant(self, session: AsyncSession, request=None, end_user=None):
+    async def get_consent_grant(self, session: AsyncSession, request: Request, end_user=None):
         """Validate current HTTP request for authorization page. This page
         is designed for resource owner to grant or deny the authorization.
         """
@@ -212,7 +226,7 @@ class AuthorizationServer(object):
         request.user = end_user
 
         grant = self.get_authorization_grant(request)
-        grant.validate_consent_request(session)
+        await grant.validate_consent_request(session)
         return grant
 
     def get_token_grant(self, request: OAuth2Request):
@@ -243,7 +257,7 @@ class AuthorizationServer(object):
         except OAuth2Error as error:
             return self.handle_error_response(request, error)
 
-    async def create_authorization_response(self, session: AsyncSession, request=None, grant_user=None):
+    async def create_authorization_response(self, session: AsyncSession, request: Request, grant_user=None):
         """Validate authorization request and create authorization response.
 
         :param session: Async SQLAlchemy session
@@ -265,7 +279,7 @@ class AuthorizationServer(object):
         except OAuth2Error as error:
             return self.handle_error_response(request, error)
 
-    async def create_token_response(self, session: AsyncSession, request=None):
+    async def create_token_response(self, session: AsyncSession, request: Request) -> Response:
         """Validate token request and create token response.
 
         :param session: Async SQLAlchemy session

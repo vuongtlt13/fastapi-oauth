@@ -1,5 +1,5 @@
 import json
-from typing import Optional, Dict
+from typing import Optional, Dict, Union
 
 from fastapi import Response
 from sqlalchemy.ext.asyncio import AsyncSession
@@ -11,8 +11,7 @@ from .signals import client_authenticated, token_revoked
 from ..common.security import generate_token
 from ..consts import ACCESS_TOKEN_LENGTH, REFRESH_TOKEN_LENGTH
 from ..helper import create_oauth_request
-from ..rfc6749 import AuthorizationServer as _AuthorizationServer
-from ..rfc6749 import OAuth2Request
+from ..rfc6749 import AuthorizationServer as _AuthorizationServer, ClientMixin, OAuth2Request
 from ..rfc6749.types import QueryClientFn, SaveTokenFn
 from ..rfc6750 import BearerTokenGenerator
 
@@ -86,7 +85,7 @@ class AuthorizationServer(_AuthorizationServer):
     async def create_json_request(self, request):
         return await create_oauth_request(request, OAuth2Request)
 
-    def handle_response(self, status_code, payload, headers):
+    def handle_response(self, status_code: int, payload: Union[Dict, str], headers: Dict):
         if isinstance(payload, dict):
             payload = json.dumps(payload)
         return Response(
@@ -158,7 +157,7 @@ def create_token_expires_in_generator(expires_in_conf=None):
     if isinstance(expires_in_conf, dict):
         data.update(expires_in_conf)
 
-    def expires_in(client, grant_type):
+    def expires_in(client: ClientMixin, grant_type):
         return data.get(grant_type, BearerTokenGenerator.DEFAULT_EXPIRES_IN)
 
     return expires_in

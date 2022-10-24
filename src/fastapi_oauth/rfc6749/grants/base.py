@@ -1,7 +1,9 @@
-from typing import TYPE_CHECKING, Union
+from typing import TYPE_CHECKING, Union, Dict, Tuple
 
 from sqlalchemy.ext.asyncio import AsyncSession
 
+from ..models import ClientMixin
+from ..wrappers import OAuth2Request
 from ...consts import DEFAULT_JSON_HEADERS
 from ..errors import InvalidRequestError
 
@@ -22,10 +24,10 @@ class BaseGrant(object):
     # https://tools.ietf.org/html/rfc4627
     TOKEN_RESPONSE_HEADER = DEFAULT_JSON_HEADERS
 
-    def __init__(self, request, server: 'AuthorizationServer'):
+    def __init__(self, request: OAuth2Request, server: 'AuthorizationServer'):
         self.prompt = None
         self.redirect_uri = None
-        self.request = request
+        self.request: OAuth2Request = request
         self.server: 'AuthorizationServer' = server
         self._hooks = {
             'after_validate_authorization_request': set(),
@@ -35,7 +37,7 @@ class BaseGrant(object):
         }
 
     @property
-    def client(self):
+    def client(self) -> ClientMixin:
         return self.request.client
 
     def generate_token(
@@ -53,7 +55,7 @@ class BaseGrant(object):
             include_refresh_token=include_refresh_token,
         )
 
-    def authenticate_token_endpoint_client(self):
+    async def authenticate_token_endpoint_client(self, session: AsyncSession) -> ClientMixin:
         """Authenticate client with the given methods for token endpoint.
 
         For example, the client makes the following HTTP request using TLS:
@@ -73,8 +75,10 @@ class BaseGrant(object):
 
         :return: client
         """
-        client = self.server.authenticate_client(
-            self.request, self.TOKEN_ENDPOINT_AUTH_METHODS,
+        client = await self.server.authenticate_client(
+            request=self.request,
+            methods=self.TOKEN_ENDPOINT_AUTH_METHODS,
+            session=session
         )
         self.server.send_signal(
             'after_authenticate_client',
@@ -150,7 +154,7 @@ class AuthorizationEndpointMixin(object):
                 )
             return redirect_uri
 
-    def validate_consent_request(self: Union[BaseGrant, 'AuthorizationEndpointMixin'], session: AsyncSession):
+    async def validate_consent_request(self: Union[BaseGrant, 'AuthorizationEndpointMixin'], session: AsyncSession):
         redirect_uri = await self.validate_authorization_request(session)
         self.execute_hook('after_validate_consent_request', redirect_uri)
         # noinspection PyAttributeOutsideInit
@@ -159,5 +163,10 @@ class AuthorizationEndpointMixin(object):
     async def validate_authorization_request(self, session: AsyncSession):
         raise NotImplementedError()
 
-    async def create_authorization_response(self, redirect_uri: str, grant_user, session: AsyncSession):
+    async def create_authorization_response(
+        self,
+        redirect_uri: str,
+        grant_user,
+        session: AsyncSession
+    ) -> Tuple[int, str, Dict]:
         raise NotImplementedError()
