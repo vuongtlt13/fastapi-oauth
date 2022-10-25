@@ -5,8 +5,6 @@
 
     https://tools.ietf.org/html/rfc6749
 """
-
-from ..common.types import QueryClientFn, QueryTokenFn, SaveTokenFn
 from .authenticate_client import ClientAuthentication
 from .authorization_server import AuthorizationServer
 from .errors import (
@@ -21,7 +19,6 @@ from .errors import (
     MissingCodeException,
     MissingTokenException,
     MissingTokenTypeException,
-    OAuth2Error,
     UnauthorizedClientError,
     UnsupportedGrantTypeError,
     UnsupportedResponseTypeError,
@@ -37,7 +34,7 @@ from .grants import (
     ResourceOwnerPasswordCredentialsGrant,
     TokenEndpointMixin,
 )
-from .models import AuthorizationCodeMixin, ClientMixin, TokenMixin
+from .mixins import AuthorizationCodeMixin, ClientMixin, TokenMixin
 from .resource_protector import ResourceProtector, TokenValidator
 from .token_endpoint import TokenEndpoint
 from .util import list_to_scope, scope_to_list
@@ -45,8 +42,6 @@ from .wrappers import OAuth2Request, OAuth2Token
 
 __all__ = [
     'OAuth2Request', 'OAuth2Token',
-    'QueryTokenFn', 'QueryClientFn', 'SaveTokenFn',
-    'OAuth2Error',
     'AccessDeniedError',
     'MissingAuthorizationError',
     'InvalidGrantError',
