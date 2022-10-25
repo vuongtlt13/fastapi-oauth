@@ -1,13 +1,14 @@
 import time
-from typing import Any, Dict, Type
+from typing import Any, Callable, Dict, Optional, Type, Union
 
 from sqlalchemy import select
 from sqlalchemy.ext.asyncio import AsyncSession
 from starlette.requests import Request
 from werkzeug.utils import import_string
 
+from ..common.errors import OAuth2Error
 from ..common.security import generate_token
-from ..common.types import QueryClientFn, QueryTokenFn, SaveTokenFn
+from ..common.types import ExpireTokenGenerator, QueryClientFn, QueryTokenFn, SaveTokenFn, SingleTokenGenerator
 from ..rfc6749.mixins import ClientMixin, TokenMixin
 from ..rfc6749.wrappers import OAuth2Request
 from ..rfc6750.token import BearerTokenGenerator
@@ -86,7 +87,7 @@ def create_revocation_endpoint(token_model: Type[TokenMixin]):
 
     class _RevocationEndpoint(RevocationEndpoint):
         async def query_token(self, token: str, token_type_hint: str, session: AsyncSession):
-            return await query_token(token, token_type_hint, session)
+            return await query_token(token=token, token_type_hint=token_type_hint, session=session)
 
         async def revoke_token(self, token: TokenMixin, request: OAuth2Request, session: AsyncSession):
             now = int(time.time())
@@ -116,20 +117,23 @@ def create_bearer_token_validator(token_model: Type[TokenMixin]):
     return _BearerTokenValidator
 
 
-async def create_oauth_request(request: Request, request_cls: Type[OAuth2Request]):
+async def create_oauth_request(request: Request, request_cls: Type[OAuth2Request], allow_insecure_transport=False):
     if isinstance(request, request_cls):
         return request
 
-    oauth_request = request_cls(request)
+    oauth_request = request_cls(
+        request=request,
+        allow_insecure_transport=allow_insecure_transport,
+    )
     await oauth_request.prepare_data()
     return oauth_request
 
 
-def create_token_expires_in_generator(expires_in_conf=None):
+def create_token_expires_in_generator(expires_in_conf: Union[Dict, str] = None) -> ExpireTokenGenerator:
     if isinstance(expires_in_conf, str):
         return import_string(expires_in_conf)
 
-    data = {}
+    data: Dict[str, int] = {}
     data.update(BearerTokenGenerator.GRANT_TYPES_EXPIRES_IN)
     if isinstance(expires_in_conf, dict):
         data.update(expires_in_conf)
@@ -140,14 +144,30 @@ def create_token_expires_in_generator(expires_in_conf=None):
     return expires_in
 
 
-def create_token_generator(token_generator_conf, length: int):
+def create_token_generator(
+    token_generator_conf: Union[Callable, bool, str],
+    length: int,
+    allow_none=False,
+) -> Optional[SingleTokenGenerator]:
     if callable(token_generator_conf):
         return token_generator_conf
 
     if isinstance(token_generator_conf, str):
         return import_string(token_generator_conf)
     elif token_generator_conf is True:
-        def token_generator(*args, **kwargs):
-            return generate_token(length, *args, **kwargs)
+        def token_generator(
+            grant_type: str,
+            client: ClientMixin,
+            user=None,
+            scope=None,
+            expires_in: int = None,
+            include_refresh_token: bool = True,
+        ) -> str:
+            return generate_token(length=length)
 
         return token_generator
+
+    if allow_none:
+        return None
+
+    raise OAuth2Error("Can't create token generator!")
