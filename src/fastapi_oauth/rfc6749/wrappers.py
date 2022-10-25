@@ -1,23 +1,22 @@
 import time
-from typing import TYPE_CHECKING, Dict, Optional, Union, Any
+from typing import TYPE_CHECKING, Any, Dict, Optional, Union
 
 from starlette.requests import Request
 
-from .models import TokenMixin, AuthorizationCodeMixin
 from .errors import InsecureTransportError
+from .mixins import AuthorizationCodeMixin, ClientMixin, TokenMixin, UserMixin
 
 if TYPE_CHECKING:
-    from ..sqla_oauth2.client_mixin import OAuth2ClientMixin
+    from ..common.types import OAuth2RequestDataPayloadDict
 
 
 class OAuth2Token(dict):
-    def __init__(self, params):
-        if params.get('expires_at'):
+    def __init__(self, params: Dict):
+        if params.get('expires_at', None):
             params['expires_at'] = int(params['expires_at'])
-        elif params.get('expires_in'):
-            params['expires_at'] = int(time.time()) + \
-                                   int(params['expires_in'])
-        super(OAuth2Token, self).__init__(params)
+        elif params.get('expires_in', None):
+            params['expires_at'] = int(time.time()) + int(params['expires_in'])
+        super().__init__(params)
 
     def is_expired(self):
         expires_at = self.get('expires_at')
@@ -26,29 +25,29 @@ class OAuth2Token(dict):
         return expires_at < time.time()
 
     @classmethod
-    def from_dict(cls, token):
+    def from_dict(cls, token: Union[Dict, 'OAuth2Token']):
         if isinstance(token, dict) and not isinstance(token, cls):
             token = cls(token)
         return token
 
 
 class OAuth2Request(object):
-    def __init__(self, request: Request):
+    def __init__(self, request: Request, allow_insecure_transport=False):
         self._raw_request: Request = request
-        InsecureTransportError.check(str(request.url))
+        self._validate_transport(str(request.url), allow_insecure_transport)
 
-        self.data: Dict[str, Optional[Any]] = {}
+        self.data: OAuth2RequestDataPayloadDict = {}
         self.json: Dict[str, Optional[Any]] = {}
         self.form: Dict[str, Optional[Any]] = {}
 
         #: authenticate method
-        self.auth_method = None
+        self.auth_method: Optional[str] = None
         #: authenticated user on this request
-        self.user = None
+        self.user: Optional[UserMixin] = None
         #: authorization_code or token model instance
         self.credential: Union[Optional[AuthorizationCodeMixin], Optional[TokenMixin]] = None
         #: client which sending this request
-        self.client: Optional["OAuth2ClientMixin"] = None
+        self.client: Optional[ClientMixin] = None
 
     async def prepare_data(self):
         try:
@@ -76,7 +75,7 @@ class OAuth2Request(object):
         return self._raw_request
 
     @property
-    def client_id(self) -> str:
+    def client_id(self) -> Optional[str]:
         """The authorization server issues the registered client a client
         identifier -- a unique string representing the registration
         information provided by the client. The value is extracted from
@@ -84,32 +83,42 @@ class OAuth2Request(object):
 
         :return: string
         """
-        return self.data.get('client_id')
+        return self.data.get('client_id', None)
 
     @property
-    def response_type(self) -> str:
-        rt = self.data.get('response_type')
+    def response_type(self) -> Optional[str]:
+        rt = self.data.get('response_type', None)
         if rt and ' ' in rt:
             # sort multiple response types
             return ' '.join(sorted(rt.split()))
         return rt
 
     @property
-    def grant_type(self) -> str:
-        return self.data.get('grant_type')
+    def grant_type(self) -> Optional[str]:
+        return self.data.get('grant_type', None)
 
     @property
-    def redirect_uri(self) -> str:
-        return self.data.get('redirect_uri')
+    def redirect_uri(self) -> Optional[str]:
+        return self.data.get('redirect_uri', None)
 
     @property
-    def scope(self) -> str:
-        return self.data.get('scope')
+    def scope(self) -> Optional[str]:
+        return self.data.get('scope', None)
 
     @property
-    def state(self) -> str:
-        return self.data.get('state')
+    def state(self) -> Optional[str]:
+        return self.data.get('state', None)
 
     @property
-    def token_type_hint(self) -> str:
-        return self.data.get('token_type_hint')
+    def token_type_hint(self) -> Optional[str]:
+        return self.data.get('token_type_hint', None)
+
+    @classmethod
+    def _validate_transport(cls, uri: str, allow_insecure_transport=False):
+        """Check and raise InsecureTransportError with the given URI."""
+        if allow_insecure_transport:
+            return True
+
+        uri = uri.lower()
+        if uri.startswith(('https://', 'http://localhost:', 'http://127.0.0.1:')):
+            raise InsecureTransportError()

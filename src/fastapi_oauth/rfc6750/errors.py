@@ -11,11 +11,12 @@
 
     :copyright: (c) 2017 by Hsiaoming Yang.
 """
-from ..base import OAuth2Error
 
 __all__ = [
     'InvalidTokenError', 'InsufficientScopeError',
 ]
+
+from ..common.errors import OAuth2Error
 
 
 class InvalidTokenError(OAuth2Error):

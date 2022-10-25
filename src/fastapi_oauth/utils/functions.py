@@ -8,12 +8,13 @@ from werkzeug.utils import import_string
 
 from ..common.security import generate_token
 from ..common.types import QueryClientFn, QueryTokenFn, SaveTokenFn
-from ..rfc6749.models import OAuth2ClientBase, OAuth2TokenBase
+from ..rfc6749.mixins import ClientMixin, TokenMixin
+from ..rfc6749.models import OAuth2TokenBase
 from ..rfc6749.wrappers import OAuth2Request
 from ..rfc6750 import BearerTokenGenerator
 
 
-def create_query_client_func(client_model: Type[OAuth2ClientBase]) -> QueryClientFn:
+def create_query_client_func(client_model: Type[ClientMixin]) -> QueryClientFn:
     """Create an ``query_client`` function that can be used in authorization
     server.
 
@@ -21,13 +22,13 @@ def create_query_client_func(client_model: Type[OAuth2ClientBase]) -> QueryClien
     """
 
     async def query_client(client_id: str, session: AsyncSession):
-        q = select(client_model).filter_by(client_id=client_id)
+        q = select(client_model).filter_by(client_id=client_id)  # type: ignore
         return (await session.scalars(q)).first()
 
     return query_client
 
 
-def create_save_token_func(token_model: Type[OAuth2TokenBase]) -> SaveTokenFn:
+def create_save_token_func(token_model: Type[TokenMixin]) -> SaveTokenFn:
     """Create an ``save_token`` function that can be used in authorization
     server.
 
@@ -40,18 +41,19 @@ def create_save_token_func(token_model: Type[OAuth2TokenBase]) -> SaveTokenFn:
         else:
             user_id = None
         client = request.client
-        item = token_model(
-            client_id=client.client_id,
-            user_id=user_id,
-            **token
-        )
-        session.add(item)
-        await session.commit()
+        if client:
+            item = token_model(
+                client_id=client.client_id,
+                user_id=user_id,
+                **token
+            )
+            session.add(item)
+            await session.commit()
 
     return save_token
 
 
-def create_query_token_func(token_model: Type[OAuth2TokenBase]) -> QueryTokenFn:
+def create_query_token_func(token_model: Type[TokenMixin]) -> QueryTokenFn:
     """Create an ``query_token`` function for revocation, introspection
     token endpoints.
 
@@ -73,7 +75,7 @@ def create_query_token_func(token_model: Type[OAuth2TokenBase]) -> QueryTokenFn:
     return query_token
 
 
-def create_revocation_endpoint(token_model: Type[OAuth2TokenBase]):
+def create_revocation_endpoint(token_model: Type[TokenMixin]):
     """Create a revocation endpoint class with SQLAlchemy session
     and token model.
 
@@ -87,7 +89,7 @@ def create_revocation_endpoint(token_model: Type[OAuth2TokenBase]):
         async def query_token(self, token: str, token_type_hint: str, session: AsyncSession):
             return await query_token(token, token_type_hint, session)
 
-        async def revoke_token(self, token: OAuth2TokenBase, request: OAuth2Request, session: AsyncSession):
+        async def revoke_token(self, token: TokenMixin, request: OAuth2Request, session: AsyncSession):
             now = int(time.time())
             hint = request.token_type_hint
             token.access_token_revoked_at = now
@@ -99,7 +101,7 @@ def create_revocation_endpoint(token_model: Type[OAuth2TokenBase]):
     return _RevocationEndpoint
 
 
-def create_bearer_token_validator(token_model: Type[OAuth2TokenBase]):
+def create_bearer_token_validator(token_model: Type[TokenMixin]):
     """Create a bearer token validator class with SQLAlchemy session
     and token model.
 
@@ -111,12 +113,6 @@ def create_bearer_token_validator(token_model: Type[OAuth2TokenBase]):
         async def authenticate_token(self, token_string, session: AsyncSession):
             q = select(token_model)
             return (await session.scalars(q.filter_by(access_token=token_string))).first()
-
-        def request_invalid(self, request):
-            return False
-
-        def token_revoked(self, token: OAuth2TokenBase):
-            return token.revoked
 
     return _BearerTokenValidator
 

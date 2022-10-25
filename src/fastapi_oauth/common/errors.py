@@ -3,8 +3,7 @@ from typing import Dict, Tuple
 
 from starlette import status
 
-from fastapi_oauth.utils.consts import DEFAULT_JSON_HEADERS
-
+from ..utils.consts import DEFAULT_JSON_HEADERS
 from .urls import add_params_to_uri
 
 

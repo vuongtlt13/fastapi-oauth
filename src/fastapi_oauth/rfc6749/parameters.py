@@ -59,7 +59,9 @@ def prepare_grant_uri(
 
     for k in kwargs:
         if kwargs[k]:
-            params.append((to_unicode(k), kwargs[k]))
+            k1 = to_unicode(k)
+            if k1 is not None:
+                params.append((k1, kwargs[k]))
 
     return add_params_to_uri(uri, params)
 

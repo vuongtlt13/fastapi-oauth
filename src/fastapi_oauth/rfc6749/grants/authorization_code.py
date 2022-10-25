@@ -19,7 +19,7 @@ from .base import AuthorizationEndpointMixin, BaseGrant, TokenEndpointMixin
 log = logging.getLogger(__name__)
 
 
-class AuthorizationCodeGrant(BaseGrant, AuthorizationEndpointMixin, TokenEndpointMixin):
+class AuthorizationCodeGrant(AuthorizationEndpointMixin, TokenEndpointMixin):
     """The authorization code grant type is used to obtain both access
     tokens and refresh tokens and is optimized for confidential clients.
     Since this is a redirection-based flow, the client must be capable of
@@ -279,18 +279,25 @@ class AuthorizationCodeGrant(BaseGrant, AuthorizationEndpointMixin, TokenEndpoin
         .. _`Section 4.1.4`: https://tools.ietf.org/html/rfc6749#section-4.1.4
         """
         client = self.request.client
+        if not client:
+            raise InvalidGrantError('There is no "client" for this code.')
+
         authorization_code = self.request.credential
+
+        if not authorization_code:
+            raise InvalidGrantError('There is no "authorization_code" for this code.')
 
         user = await self.authenticate_user(authorization_code, session)
         if not user:
             raise InvalidGrantError('There is no "user" for this code.')
+
         self.request.user = user
 
-        scope = authorization_code.get_scope()  
+        scope = authorization_code.get_scope()
         token = self.generate_token(
             user=user,
             scope=scope,
-            include_refresh_token=client.check_grant_type('refresh_token'), 
+            include_refresh_token=client.check_grant_type('refresh_token'),
         )
         log.debug('Issue token %r to %r', token, client)
 

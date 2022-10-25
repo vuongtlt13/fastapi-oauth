@@ -2,9 +2,8 @@ from typing import TYPE_CHECKING, Any, Dict, Optional, Set, Tuple, Union
 
 from sqlalchemy.ext.asyncio import AsyncSession
 
-from fastapi_oauth.utils.consts import DEFAULT_JSON_HEADERS
-
-from ...sqla_oauth2 import OAuth2ClientMixin
+from ...rfc6749.mixins import ClientMixin
+from ...utils.consts import DEFAULT_JSON_HEADERS
 from ..errors import InvalidRequestError
 from ..wrappers import OAuth2Request
 
@@ -38,7 +37,7 @@ class BaseGrant(object):
         }
 
     @property
-    def client(self) -> OAuth2ClientMixin:
+    def client(self) -> Optional[ClientMixin]:
         return self.request.client
 
     def generate_token(
@@ -56,7 +55,7 @@ class BaseGrant(object):
             include_refresh_token=include_refresh_token,
         )
 
-    async def authenticate_token_endpoint_client(self, session: AsyncSession) -> OAuth2ClientMixin:
+    async def authenticate_token_endpoint_client(self, session: AsyncSession) -> ClientMixin:
         """Authenticate client with the given methods for token endpoint.
 
         For example, the client makes the following HTTP request using TLS:
@@ -110,7 +109,7 @@ class BaseGrant(object):
             hook(self, *args, **kwargs)
 
 
-class TokenEndpointMixin(object):
+class TokenEndpointMixin(BaseGrant):
     #: Allowed HTTP methods of this token endpoint
     TOKEN_ENDPOINT_HTTP_METHODS = ['POST']
 
@@ -129,8 +128,8 @@ class TokenEndpointMixin(object):
         raise NotImplementedError()
 
 
-class AuthorizationEndpointMixin(object):
-    RESPONSE_TYPES = set()
+class AuthorizationEndpointMixin(BaseGrant):
+    RESPONSE_TYPES: Set[str] = set()
     ERROR_RESPONSE_FRAGMENT = False
 
     @classmethod
@@ -155,10 +154,9 @@ class AuthorizationEndpointMixin(object):
                 )
             return redirect_uri
 
-    async def validate_consent_request(self: Union[BaseGrant, 'AuthorizationEndpointMixin'], session: AsyncSession):
-        redirect_uri = await self.validate_authorization_request(session)  
-        self.execute_hook('after_validate_consent_request', redirect_uri)  
-        # noinspection PyAttributeOutsideInit
+    async def validate_consent_request(self, session: AsyncSession):
+        redirect_uri = await self.validate_authorization_request(session)
+        self.execute_hook('after_validate_consent_request', redirect_uri)
         self.redirect_uri = redirect_uri
 
     async def validate_authorization_request(self, session: AsyncSession):

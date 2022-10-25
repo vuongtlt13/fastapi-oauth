@@ -6,11 +6,10 @@
     https://tools.ietf.org/html/rfc6749
 """
 
-from fastapi_oauth.common.types import QueryClientFn, QueryTokenFn, SaveTokenFn
-
+from ..common.types import QueryClientFn, QueryTokenFn, SaveTokenFn
 from .authenticate_client import ClientAuthentication
 from .authorization_server import AuthorizationServer
-from .errors import (  # exceptions for clients
+from .errors import (
     AccessDeniedError,
     InsecureTransportError,
     InvalidClientError,

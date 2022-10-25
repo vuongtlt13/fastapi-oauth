@@ -9,17 +9,20 @@
 """
 
 import logging
+from typing import Any, Dict, Tuple
 
 from sqlalchemy.ext.asyncio import AsyncSession
 
 from ..errors import InvalidGrantError, InvalidRequestError, InvalidScopeError, UnauthorizedClientError
+from ..mixins import ClientMixin, UserMixin
+from ..models import OAuth2ClientBase, OAuth2TokenBase
 from ..util import scope_to_list
 from .base import BaseGrant, TokenEndpointMixin
 
 log = logging.getLogger(__name__)
 
 
-class RefreshTokenGrant(BaseGrant, TokenEndpointMixin):
+class RefreshTokenGrant(TokenEndpointMixin):
     """A special grant endpoint for refresh_token grant_type. Refreshing an
     Access Token per `Section 6`_.
 
@@ -30,11 +33,11 @@ class RefreshTokenGrant(BaseGrant, TokenEndpointMixin):
     #: The authorization server MAY issue a new refresh token
     INCLUDE_NEW_REFRESH_TOKEN = False
 
-    def _validate_request_client(self):
+    async def _validate_request_client(self, session: AsyncSession) -> ClientMixin:
         # require client authentication for confidential clients or for any
         # client that was issued client credentials (or with other
         # authentication requirements)
-        client = self.authenticate_token_endpoint_client()
+        client = await self.authenticate_token_endpoint_client(session)
         log.debug('Validate token request of %r', client)
 
         if not client.check_grant_type(self.GRANT_TYPE):
@@ -42,7 +45,7 @@ class RefreshTokenGrant(BaseGrant, TokenEndpointMixin):
 
         return client
 
-    async def _validate_request_token(self, client, session: AsyncSession):
+    async def _validate_request_token(self, client: ClientMixin, session: AsyncSession) -> OAuth2TokenBase:
         refresh_token = self.request.form.get('refresh_token')
         if refresh_token is None:
             raise InvalidRequestError('Missing "refresh_token" in request.')
@@ -52,7 +55,7 @@ class RefreshTokenGrant(BaseGrant, TokenEndpointMixin):
             raise InvalidGrantError()
         return token
 
-    def _validate_token_scope(self, token):
+    def _validate_token_scope(self, token: OAuth2TokenBase):
         scope = self.request.scope
         if not scope:
             return
@@ -99,20 +102,20 @@ class RefreshTokenGrant(BaseGrant, TokenEndpointMixin):
 
             grant_type=refresh_token&refresh_token=tGzv3JOkF0XG5Qx2TlKWIA
         """
-        client = self._validate_request_client()
+        client = await self._validate_request_client(session)
         self.request.client = client
         token = await self._validate_request_token(client, session)
         self._validate_token_scope(token)
         self.request.credential = token
 
-    async def create_token_response(self, session: AsyncSession):
+    async def create_token_response(self, session: AsyncSession) -> Tuple[int, Any, Dict]:
         """If valid and authorized, the authorization server issues an access
         token as described in Section 5.1.  If the request failed
         verification or is invalid, the authorization server returns an error
         response as described in Section 5.2.
         """
         credential = self.request.credential
-        user = self.authenticate_user(credential, session)
+        user = await self.authenticate_user(credential, session)
         if not user:
             raise InvalidRequestError('There is no "user" for this token.')
 
@@ -126,7 +129,7 @@ class RefreshTokenGrant(BaseGrant, TokenEndpointMixin):
         await self.revoke_old_credential(credential, session)
         return 200, token, self.TOKEN_RESPONSE_HEADER
 
-    def issue_token(self, user, credential):
+    def issue_token(self, user, credential) -> OAuth2TokenBase:
         expires_in = credential.get_expires_in()
         scope = self.request.scope
         if not scope:
@@ -140,7 +143,7 @@ class RefreshTokenGrant(BaseGrant, TokenEndpointMixin):
         )
         return token
 
-    async def authenticate_refresh_token(self, refresh_token, session: AsyncSession):
+    async def authenticate_refresh_token(self, refresh_token: str, session: AsyncSession) -> OAuth2TokenBase:
         """Get token information with refresh_token string. Developers MUST
         implement this method in subclass::
 
@@ -155,7 +158,7 @@ class RefreshTokenGrant(BaseGrant, TokenEndpointMixin):
         """
         raise NotImplementedError()
 
-    async def authenticate_user(self, credential, session: AsyncSession):
+    async def authenticate_user(self, credential, session: AsyncSession) -> UserMixin:
         """Authenticate the user related to this credential. Developers MUST
         implement this method in subclass::
 

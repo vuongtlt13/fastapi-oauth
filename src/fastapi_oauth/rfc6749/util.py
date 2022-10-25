@@ -1,6 +1,6 @@
 import base64
 import binascii
-from typing import Any, Optional, Tuple
+from typing import Any, Dict, Optional, Tuple
 
 from ..common.encoding import to_unicode
 
@@ -23,8 +23,8 @@ def scope_to_list(scope: Any):
     return scope.strip().split()
 
 
-def extract_basic_authorization(headers) -> Tuple[Optional[str], Optional[str]]:
-    auth = headers.get('Authorization')
+def extract_basic_authorization(headers: Dict[str, str]) -> Tuple[Optional[str], Optional[str]]:
+    auth = headers.get('Authorization', None)
     if not auth or ' ' not in auth:
         return None, None
 
@@ -36,6 +36,10 @@ def extract_basic_authorization(headers) -> Tuple[Optional[str], Optional[str]]:
         query = to_unicode(base64.b64decode(auth_token))
     except (binascii.Error, TypeError):
         return None, None
+
+    if query is None:
+        return None, None
+
     if ':' in query:
         username, password = query.split(':', 1)
         return username, password

@@ -6,7 +6,7 @@ from .base import BaseGrant, TokenEndpointMixin
 log = logging.getLogger(__name__)
 
 
-class ClientCredentialsGrant(BaseGrant, TokenEndpointMixin):
+class ClientCredentialsGrant(TokenEndpointMixin):
     """The client can request an access token using only its client
     credentials (or other supported means of authentication) when the
     client is requesting access to the protected resources under its

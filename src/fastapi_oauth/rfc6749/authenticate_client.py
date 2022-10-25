@@ -13,15 +13,14 @@
 """
 
 import logging
-from typing import Dict, List
+from typing import Dict, List, Optional
 
 from sqlalchemy.ext.asyncio import AsyncSession
 from starlette import status
 
-from fastapi_oauth.common.types import AuthenticateClientFn, QueryClientFn
-
+from ..common.types import AuthenticateClientFn, QueryClientFn
+from . import ClientMixin
 from .errors import InvalidClientError
-from .models import ClientMixin
 from .util import extract_basic_authorization
 from .wrappers import OAuth2Request
 
@@ -65,11 +64,11 @@ async def authenticate_client_secret_basic(
     query_client: QueryClientFn,
     request: OAuth2Request,
     session: AsyncSession,
-) -> ClientMixin:
+) -> Optional[ClientMixin]:
     """Authenticate client by ``client_secret_basic`` method. The client
     uses HTTP Basic for authentication.
     """
-    client_id, client_secret = extract_basic_authorization(request.raw_request.headers)
+    client_id, client_secret = extract_basic_authorization(dict(request.raw_request.headers))
     if client_id and client_secret:
         client = await _validate_client(
             query_client=query_client,
@@ -82,13 +81,14 @@ async def authenticate_client_secret_basic(
             log.debug(f'Authenticate {client_id} via "client_secret_basic" success')
             return client
     log.debug(f'Authenticate {client_id} via "client_secret_basic" failed')
+    return None
 
 
 async def authenticate_client_secret_post(
     query_client: QueryClientFn,
     request: OAuth2Request,
     session: AsyncSession,
-) -> ClientMixin:
+) -> Optional[ClientMixin]:
     """Authenticate client by ``client_secret_post`` method. The client
     uses POST parameters for authentication.
     """
@@ -106,18 +106,19 @@ async def authenticate_client_secret_post(
             log.debug(f'Authenticate {client_id} via "client_secret_post" success')
             return client
     log.debug(f'Authenticate {client_id} via "client_secret_post" failed')
+    return None
 
 
 async def authenticate_none(
     query_client: QueryClientFn,
     request: OAuth2Request,
     session: AsyncSession,
-) -> ClientMixin:
+) -> Optional[ClientMixin]:
     """Authenticate public client by ``none`` method. The client
     does not have a client secret.
     """
     client_id = request.client_id
-    if client_id and not request.data.get('client_secret'):
+    if client_id and not request.data.get('client_secret', None):
         client = await _validate_client(
             query_client=query_client,
             client_id=client_id,
@@ -127,6 +128,7 @@ async def authenticate_none(
         log.debug(f'Authenticate {client_id} via "none" success')
         return client
     log.debug(f'Authenticate {client_id} via "none" failed')
+    return None
 
 
 async def _validate_client(
@@ -135,7 +137,7 @@ async def _validate_client(
     session: AsyncSession,
     state: str = None,
     status_code: int = status.HTTP_400_BAD_REQUEST,
-):
+) -> ClientMixin:
     if client_id is None:
         raise InvalidClientError(state=state, status_code=status_code)
 

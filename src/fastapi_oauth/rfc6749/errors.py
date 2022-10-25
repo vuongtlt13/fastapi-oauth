@@ -23,19 +23,6 @@ class InsecureTransportError(OAuth2Error):
     error = 'insecure_transport'
     description = 'OAuth 2 MUST utilize https.'
 
-    # @classmethod
-    # def check(cls, uri):
-    #     """Check and raise InsecureTransportError with the given URI."""
-    #     if not is_secure_transport(uri):
-    #         raise cls()
-    # def is_secure_transport(uri):
-    #     """Check if the uri is over ssl."""
-    #     if os.getenv('AUTHLIB_INSECURE_TRANSPORT'):
-    #         return True
-    #
-    #     uri = uri.lower()
-    #     return uri.startswith(('https://', 'http://localhost:'))
-
 
 class InvalidRequestError(OAuth2Error):
     """The request is missing a required parameter, includes an
