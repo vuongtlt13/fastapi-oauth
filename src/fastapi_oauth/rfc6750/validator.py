@@ -6,7 +6,7 @@
 """
 from sqlalchemy.ext.asyncio import AsyncSession
 
-from ..rfc6749 import TokenValidator
+from ..rfc6749.resource_protector import TokenValidator
 from .errors import InsufficientScopeError, InvalidTokenError
 
 

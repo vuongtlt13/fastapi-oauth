@@ -1,10 +1,11 @@
 from typing import Any, Dict, Optional, Tuple
 
 from sqlalchemy.ext.asyncio import AsyncSession
-from starlette.requests import Request
 
-from ..rfc6749 import InvalidRequestError, OAuth2Request, TokenEndpoint, UnsupportedTokenTypeError
-from ..rfc6749.models import OAuth2ClientBase
+from ..rfc6749.errors import InvalidRequestError, UnsupportedTokenTypeError
+from ..rfc6749.mixins import ClientMixin
+from ..rfc6749.token_endpoint import TokenEndpoint
+from ..rfc6749.wrappers import OAuth2Request
 from ..utils.consts import DEFAULT_JSON_HEADERS
 
 
@@ -17,7 +18,7 @@ class RevocationEndpoint(TokenEndpoint):
     #: Endpoint name to be registered
     ENDPOINT_NAME = 'revocation'
 
-    async def authenticate_token(self, request: OAuth2Request, client, session: AsyncSession) -> Optional[OAuth2ClientBase]:
+    async def authenticate_token(self, request: OAuth2Request, client, session: AsyncSession) -> Optional[ClientMixin]:
         """The client constructs the request by including the following
         parameters using the "application/x-www-form-urlencoded" format in
         the HTTP request entity-body:

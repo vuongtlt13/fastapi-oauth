@@ -8,7 +8,7 @@ license = "GNU General Public License v3 (GPLv3)"
 [tool.poetry.dependencies]
 python = "^3.8"
 fastapi = "^0.85.1"
-SQLAlchemy = { version = "1.4.28", extras = ["asyncio"] }
+SQLAlchemy = { version = "^1.4.28", extras = ["asyncio"] }
 Werkzeug = "^2.2.2"
 pydantic = {version = "^1.10.2", extras = ["dotenv"]}
 
@@ -20,7 +20,7 @@ twine = "^4.0.1"
 keyring = "^23.9.3"
 
 [tool.poetry.group.dev.dependencies]
-sqlalchemy = {version = "1.4.28", extras = ["mypy"]}
+sqlalchemy = {version = "^1.4.28", extras = ["mypy"]}
 mypy = "0.930"
 sqlalchemy2-stubs = "^0.0.2a29"
 
@@ -55,7 +55,7 @@ authors = [
 ]
 description = "OAuth2 Provider in FastAPI"
 readme = "README.md"
-requires-python = ">=3.8"
+requires-python = ">=3.6"
 classifiers = [
     "Programming Language :: Python :: 3",
     "License :: OSI Approved :: GNU General Public License v3 (GPLv3)",

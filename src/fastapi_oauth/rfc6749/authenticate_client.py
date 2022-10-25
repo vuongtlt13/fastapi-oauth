@@ -19,14 +19,12 @@ from sqlalchemy.ext.asyncio import AsyncSession
 from starlette import status
 
 from ..common.types import AuthenticateClientFn, QueryClientFn
-from . import ClientMixin
 from .errors import InvalidClientError
+from .mixins import ClientMixin
 from .util import extract_basic_authorization
 from .wrappers import OAuth2Request
 
 log = logging.getLogger(__name__)
-
-__all__ = ['ClientAuthentication']
 
 
 class ClientAuthentication(object):
@@ -146,3 +144,11 @@ async def _validate_client(
         raise InvalidClientError(state=state, status_code=status_code)
 
     return client
+
+
+__all__ = [
+    'ClientAuthentication',
+    'authenticate_none',
+    'authenticate_client_secret_basic',
+    'authenticate_client_secret_post',
+]
