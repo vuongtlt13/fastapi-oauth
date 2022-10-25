@@ -1,4 +1,4 @@
-from typing import TYPE_CHECKING, Any, Dict, Optional, Set, Tuple, Union
+from typing import TYPE_CHECKING, Any, Dict, Optional, Set, Tuple
 
 from sqlalchemy.ext.asyncio import AsyncSession
 
@@ -124,6 +124,20 @@ class BaseGrant(object):
     async def create_token_response(self, session: AsyncSession):
         pass
 
+    async def validate_authorization_request(self, session: AsyncSession):
+        pass
+
+    async def create_authorization_response(
+        self,
+        redirect_uri: str,
+        grant_user,
+        session: AsyncSession,
+    ) -> Tuple[int, str, Dict]:
+        pass
+
+    @classmethod
+    def check_authorization_endpoint(cls, request):
+        pass
 
 class TokenEndpointMixin(BaseGrant):
     #: Allowed HTTP methods of this token endpoint

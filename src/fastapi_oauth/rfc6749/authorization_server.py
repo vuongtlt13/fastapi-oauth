@@ -1,5 +1,4 @@
-import json
-from typing import Any, Dict, List, Optional, Tuple, Type, Union
+from typing import Any, Dict, List, Optional, Tuple, Type
 
 from sqlalchemy.ext.asyncio import AsyncSession
 from starlette.requests import Request
@@ -7,7 +6,7 @@ from starlette.responses import Response
 
 from ..common.errors import OAuth2Error
 from ..common.setting import OAuthSetting
-from ..common.types import AuthenticateClientFn, GroupTokenGenerator, QueryClientFn, SaveTokenFn, SingleTokenGenerator
+from ..common.types import AuthenticateClientFn, GroupTokenGenerator, QueryClientFn, SaveTokenFn
 from ..rfc6749.signals import client_authenticated, token_revoked
 from ..rfc6750.token import BearerTokenGenerator
 from ..utils.consts import ACCESS_TOKEN_LENGTH, REFRESH_TOKEN_LENGTH
@@ -54,7 +53,6 @@ class AuthorizationServer:
         self._config: OAuthSetting = config
         self._query_client: QueryClientFn = query_client_fn or create_query_client_func(self.oauth_client_model_cls)
         self._save_token: SaveTokenFn = save_token_fn or create_save_token_func(self.oauth_token_model_cls)
-        self._error_uris: List[Tuple[int, str]] = []
 
     def init_app(self, config: OAuthSetting, query_client: QueryClientFn = None, save_token: SaveTokenFn = None):
         """Initialize later with FastAPI app instance."""
@@ -66,7 +64,6 @@ class AuthorizationServer:
 
         self.register_token_generator('default', self.create_bearer_token_generator(self._config))
         self.supported_scopes = self._config.OAUTH2_SCOPES_SUPPORTED
-        self._error_uris = self._config.OAUTH2_ERROR_URIS
 
     def generate_token(
         self,
@@ -206,7 +203,7 @@ class AuthorizationServer:
         """
         self._endpoints[endpoint_cls.ENDPOINT_NAME] = endpoint_cls(self)
 
-    def get_authorization_grant(self, request):
+    def get_authorization_grant(self, request) -> BaseGrant:
         """Find the authorization grant for current request.
 
         :param request: OAuth2Request instance.
@@ -239,7 +236,7 @@ class AuthorizationServer:
                 return _create_grant(grant_cls, extensions, request, self)
         raise UnsupportedGrantTypeError(request.grant_type)
 
-    async def create_endpoint_response(self, name, request: Request, session: AsyncSession):
+    async def create_endpoint_response(self, name, request: Request, session: AsyncSession) -> Tuple[int, Any, Dict]:
         """Validate endpoint request and create endpoint response.
 
         :param session: Async SQLAlchemy Session
@@ -252,11 +249,7 @@ class AuthorizationServer:
 
         endpoint = self._endpoints[name]
         oauth_request = await endpoint.create_endpoint_request(request)
-        try:
-            args = await endpoint.create_endpoint_response(oauth_request, session)
-            return self.handle_response(*args)
-        except OAuth2Error as error:
-            return self.handle_error_response(oauth_request, error)
+        return await endpoint.create_endpoint_response(oauth_request, session)
 
     async def create_authorization_response(self, session: AsyncSession, request: Request, grant_user=None):
         """Validate authorization request and create authorization response.
@@ -268,17 +261,10 @@ class AuthorizationServer:
         :returns: Response
         """
         oauth_request = await self.create_oauth2_request(request)
-        try:
-            grant = self.get_authorization_grant(oauth_request)
-        except UnsupportedResponseTypeError as error:
-            return self.handle_error_response(oauth_request, error)
+        grant = self.get_authorization_grant(oauth_request)
 
-        try:
-            redirect_uri = await grant.validate_authorization_request(session)
-            args = await grant.create_authorization_response(redirect_uri, grant_user, session)
-            return self.handle_response(*args)
-        except OAuth2Error as error:
-            return self.handle_error_response(oauth_request, error)
+        redirect_uri = await grant.validate_authorization_request(session)
+        return await grant.create_authorization_response(redirect_uri, grant_user, session)
 
     async def create_token_response(self, session: AsyncSession, request: Request) -> Response:
         """Validate token request and create token response.
@@ -287,20 +273,10 @@ class AuthorizationServer:
         :param request: HTTP request instance
         """
         oauth_request = await self.create_oauth2_request(request)
-        try:
-            grant = self.get_token_grant(oauth_request)
-        except UnsupportedGrantTypeError as error:
-            return self.handle_error_response(oauth_request, error)
+        grant = self.get_token_grant(oauth_request)
 
-        try:
-            await grant.validate_token_request(session)
-            args = await grant.create_token_response(session)
-            return self.handle_response(*args)
-        except OAuth2Error as error:
-            return self.handle_error_response(oauth_request, error)
-
-    def handle_error_response(self, request: OAuth2Request, error):
-        return self.handle_response(*error(self.get_error_uri(request, error)))
+        await grant.validate_token_request(session)
+        return await grant.create_token_response(session)
 
     async def query_client(self, client_id: str, session: AsyncSession) -> Optional[ClientMixin]:
         return await self._query_client(client_id=client_id, session=session)
@@ -308,25 +284,11 @@ class AuthorizationServer:
     async def save_token(self, token: Dict, request: OAuth2Request, session: AsyncSession):
         return await self._save_token(token, request, session)
 
-    def get_error_uri(self, request, error):
-        if self._error_uris:
-            uris = dict(self._error_uris)
-            return uris.get(error.error)
-
     async def create_oauth2_request(self, request: Request) -> OAuth2Request:
         return await create_oauth_request(
             request=request,
             request_cls=OAuth2Request,
             allow_insecure_transport=self._config.OAUTH2_ALLOW_INSECURE_TRANSPORT,
-        )
-
-    def handle_response(self, status_code: int, payload: Union[Dict, str], headers: Dict):
-        if isinstance(payload, dict):
-            payload = json.dumps(payload)
-        return Response(
-            payload,
-            status_code=status_code,
-            headers=headers,
         )
 
     def send_signal(self, name, *args, **kwargs):
