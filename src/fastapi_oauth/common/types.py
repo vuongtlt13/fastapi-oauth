@@ -1,5 +1,5 @@
 import sys
-from typing import Any, Callable, Coroutine, Dict, List, Optional, TypeVar
+from typing import Any, Callable, Coroutine, Dict, List, Optional, Protocol, Type, TypeVar
 
 from sqlalchemy.ext.asyncio import AsyncSession
 
@@ -11,14 +11,80 @@ if sys.version_info >= (3, 8):
 else:
     from typing_extensions import TypedDict
 
-QueryClientFn = Callable[[str, AsyncSession], Coroutine[Any, Any, Optional[ClientMixin]]]
-QueryTokenFn = Callable[[str, str, AsyncSession], Coroutine[Any, Any, Optional[TokenMixin]]]
-SaveTokenFn = Callable[[Dict, OAuth2Request, AsyncSession], Coroutine[Any, Any, Any]]
-AuthenticateClientFn = Callable[
-    [QueryClientFn, OAuth2Request, AsyncSession], Coroutine[Any, Any, Optional[ClientMixin]],
-]
 
-TokenGenerator = Callable[[str, ClientMixin, Any, Any, Optional[int], bool], Dict]
+class QueryClientFn(Protocol):
+    async def __call__(
+        self,
+        client_id: str,
+        session: AsyncSession,
+    ) -> Optional[ClientMixin]:
+        ...
+
+
+class QueryTokenFn(Protocol):
+    async def __call__(
+        self,
+        token: str,
+        token_type_hint: str,
+        session: AsyncSession,
+    ) -> Optional[TokenMixin]:
+        ...
+
+
+class SaveTokenFn(Protocol):
+    async def __call__(
+        self,
+        token: Dict,
+        request: OAuth2Request,
+        session: AsyncSession,
+    ) -> Any:
+        ...
+
+
+class AuthenticateClientFn(Protocol):
+    async def __call__(
+        self,
+        query_client: QueryClientFn,
+        request: OAuth2Request,
+        session: AsyncSession,
+    ) -> Optional[ClientMixin]:
+        ...
+
+
+class SingleTokenGenerator(Protocol):
+    def __call__(
+        self,
+        grant_type: str,
+        client: ClientMixin,
+        user=None,
+        scope=None,
+        expires_in: int = None,
+        include_refresh_token: bool = True,
+    ) -> str:
+        ...
+
+
+class GroupTokenGenerator(Protocol):
+    def __call__(
+        self,
+        grant_type: str,
+        client: ClientMixin,
+        user=None,
+        scope=None,
+        expires_in: int = None,
+        include_refresh_token: bool = True,
+    ) -> Dict:
+        ...
+
+
+class ExpireTokenGenerator(Protocol):
+    def __call__(
+        self,
+        client: ClientMixin,
+        grant_type: str,
+    ) -> Dict:
+        ...
+
 
 ClientMetadataDict = TypedDict(
     'ClientMetadataDict',
@@ -40,6 +106,7 @@ ClientMetadataDict = TypedDict(
         'software_version': str,
     },
     total=False,
+
 )
 
 OAuth2RequestDataPayloadDict = TypedDict(

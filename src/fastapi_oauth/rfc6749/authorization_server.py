@@ -7,7 +7,7 @@ from starlette.responses import Response
 
 from ..common.errors import OAuth2Error
 from ..common.setting import OAuthSetting
-from ..common.types import AuthenticateClientFn, QueryClientFn, SaveTokenFn, TokenGenerator
+from ..common.types import AuthenticateClientFn, GroupTokenGenerator, QueryClientFn, SaveTokenFn, SingleTokenGenerator
 from ..rfc6749.signals import client_authenticated, token_revoked
 from ..rfc6750.token import BearerTokenGenerator
 from ..utils.consts import ACCESS_TOKEN_LENGTH, REFRESH_TOKEN_LENGTH
@@ -45,13 +45,13 @@ class AuthorizationServer:
         self.oauth_token_model_cls: Type[TokenMixin] = oauth_token_model_cls
 
         self.supported_scopes: List[str] = []
-        self._token_generators: Dict[str, TokenGenerator] = {}
+        self._token_generators: Dict[str, GroupTokenGenerator] = {}
         self._client_auth: Optional[ClientAuthentication] = None
-        self._authorization_grants: List[Tuple[Any, Any]] = []
-        self._token_grants: List = []  # type hint for this
+        self._authorization_grants: List[Tuple[Type[BaseGrant], Any]] = []
+        self._token_grants: List[Tuple[Type[BaseGrant], Any]] = []
         self._endpoints: Dict[str, TokenEndpoint] = {}
 
-        self._config = config
+        self._config: OAuthSetting = config
         self._query_client: QueryClientFn = query_client_fn or create_query_client_func(self.oauth_client_model_cls)
         self._save_token: SaveTokenFn = save_token_fn or create_save_token_func(self.oauth_token_model_cls)
         self._error_uris: List[Tuple[int, str]] = []
@@ -88,16 +88,16 @@ class AuthorizationServer:
         :return: Token dict
         """
         # generator for a specified grant type
-        func: Optional[TokenGenerator] = self._token_generators.get(grant_type)
+        func: Optional[GroupTokenGenerator] = self._token_generators.get(grant_type, None)
         if not func:
             # default generator for all grant types
-            func = self._token_generators.get('default')
+            func = self._token_generators.get('default', None)
         if not func:
             raise RuntimeError('No configured token generator')
 
         return func(grant_type, client, user, scope, expires_in, include_refresh_token)
 
-    def register_token_generator(self, grant_type: str, func: TokenGenerator):
+    def register_token_generator(self, grant_type: str, func: GroupTokenGenerator):
         """Register a function as token generator for the given ``grant_type``.
         Developers MUST register a default token generator with a special
         ``grant_type=default``::
@@ -177,7 +177,7 @@ class AuthorizationServer:
             if not set(self.supported_scopes).issuperset(scopes):
                 raise InvalidScopeError(state=state)
 
-    def register_grant(self, grant_cls, extensions=None):
+    def register_grant(self, grant_cls: Type[BaseGrant], extensions=None):
         """Register a grant class into the endpoint registry. Developers
         can implement the grants in ``fastapi_oauth.rfc6749.grants`` and
         register with this method::
@@ -228,7 +228,7 @@ class AuthorizationServer:
         await grant.validate_consent_request(session)
         return grant
 
-    def get_token_grant(self, request: OAuth2Request):
+    def get_token_grant(self, request: OAuth2Request) -> BaseGrant:
         """Find the token grant for current request.
 
         :param request: OAuth2Request instance.
@@ -303,7 +303,7 @@ class AuthorizationServer:
         return self.handle_response(*error(self.get_error_uri(request, error)))
 
     async def query_client(self, client_id: str, session: AsyncSession) -> Optional[ClientMixin]:
-        return await self._query_client(client_id, session)
+        return await self._query_client(client_id=client_id, session=session)
 
     async def save_token(self, token: Dict, request: OAuth2Request, session: AsyncSession):
         return await self._save_token(token, request, session)
@@ -314,10 +314,11 @@ class AuthorizationServer:
             return uris.get(error.error)
 
     async def create_oauth2_request(self, request: Request) -> OAuth2Request:
-        return await create_oauth_request(request, OAuth2Request)
-
-    async def create_json_request(self, request):
-        return await create_oauth_request(request, OAuth2Request)
+        return await create_oauth_request(
+            request=request,
+            request_cls=OAuth2Request,
+            allow_insecure_transport=self._config.OAUTH2_ALLOW_INSECURE_TRANSPORT,
+        )
 
     def handle_response(self, status_code: int, payload: Union[Dict, str], headers: Dict):
         if isinstance(payload, dict):
@@ -369,16 +370,18 @@ class AuthorizationServer:
         """
         conf = config.OAUTH2_ACCESS_TOKEN_GENERATOR
         access_token_generator = create_token_generator(conf, ACCESS_TOKEN_LENGTH)
+        if access_token_generator is None:
+            raise OAuth2Error("Can't create access token generator!")
 
         conf = config.OAUTH2_REFRESH_TOKEN_GENERATOR
-        refresh_token_generator = create_token_generator(conf, REFRESH_TOKEN_LENGTH)
+        refresh_token_generator = create_token_generator(conf, REFRESH_TOKEN_LENGTH, allow_none=False)
 
         expires_conf = config.OAUTH2_TOKEN_EXPIRES_IN
         expires_generator = create_token_expires_in_generator(expires_conf)
         return BearerTokenGenerator(
-            access_token_generator,
-            refresh_token_generator,
-            expires_generator,
+            access_token_generator=access_token_generator,
+            refresh_token_generator=refresh_token_generator,
+            expires_generator=expires_generator,
         )
 
 

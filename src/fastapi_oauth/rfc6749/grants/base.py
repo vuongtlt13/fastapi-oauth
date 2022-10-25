@@ -16,7 +16,7 @@ class BaseGrant(object):
     TOKEN_ENDPOINT_AUTH_METHODS = ['client_secret_basic']
 
     #: Designed for which "grant_type"
-    GRANT_TYPE: Optional[str] = None
+    GRANT_TYPE: str
 
     # NOTE: there is no charset for application/json, since
     # application/json should always in UTF-8.
@@ -41,8 +41,11 @@ class BaseGrant(object):
         return self.request.client
 
     def generate_token(
-        self, user=None, scope=None, grant_type=None,
-        expires_in=None, include_refresh_token=True,
+        self, user=None,
+        scope=None,
+        grant_type=None,
+        expires_in=None,
+        include_refresh_token=True,
     ):
         if grant_type is None:
             grant_type = self.GRANT_TYPE
@@ -108,18 +111,31 @@ class BaseGrant(object):
         for hook in self._hooks[hook_type]:
             hook(self, *args, **kwargs)
 
+    @classmethod
+    def check_token_endpoint(cls, request: OAuth2Request):
+        pass
+
+    async def validate_token_request(self, session: AsyncSession):
+        pass
+
+    async def validate_consent_request(self, session: AsyncSession):
+        pass
+
+    async def create_token_response(self, session: AsyncSession):
+        pass
+
 
 class TokenEndpointMixin(BaseGrant):
     #: Allowed HTTP methods of this token endpoint
     TOKEN_ENDPOINT_HTTP_METHODS = ['POST']
 
     #: Designed for which "grant_type"
-    GRANT_TYPE: Optional[str] = None
+    GRANT_TYPE: str
 
     @classmethod
-    def check_token_endpoint(cls, request):
+    def check_token_endpoint(cls, request: OAuth2Request):
         return request.grant_type == cls.GRANT_TYPE and \
-               request.method in cls.TOKEN_ENDPOINT_HTTP_METHODS
+               request.raw_request.method in cls.TOKEN_ENDPOINT_HTTP_METHODS
 
     async def validate_token_request(self, session: AsyncSession):
         raise NotImplementedError()

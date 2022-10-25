@@ -48,7 +48,7 @@ class ClientAuthentication(object):
     ) -> ClientMixin:
         for method in methods:
             func: AuthenticateClientFn = self._methods[method]
-            client = await func(self.query_client, request, session)
+            client = await func(query_client=self.query_client, request=request, session=session)
             if client and client.check_endpoint_auth_method(method, endpoint):
                 request.auth_method = method
                 return client
@@ -139,7 +139,7 @@ async def _validate_client(
     if client_id is None:
         raise InvalidClientError(state=state, status_code=status_code)
 
-    client = await query_client(client_id, session)
+    client = await query_client(client_id=client_id, session=session)
     if not client:
         raise InvalidClientError(state=state, status_code=status_code)
 

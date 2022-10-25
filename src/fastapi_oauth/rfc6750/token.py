@@ -1,3 +1,9 @@
+from typing import Optional
+
+from ..common.types import ExpireTokenGenerator, SingleTokenGenerator
+from ..rfc6749.mixins import ClientMixin
+
+
 class BearerTokenGenerator(object):
     """Bearer token generator which can create the payload for token response
     by OAuth 2 server. A typical token response would be:
@@ -28,13 +34,14 @@ class BearerTokenGenerator(object):
     }
 
     def __init__(
-        self, access_token_generator,
-        refresh_token_generator=None,
-        expires_generator=None,
+        self,
+        access_token_generator: SingleTokenGenerator,
+        refresh_token_generator: SingleTokenGenerator = None,
+        expires_generator: ExpireTokenGenerator = None,
     ):
-        self.access_token_generator = access_token_generator
-        self.refresh_token_generator = refresh_token_generator
-        self.expires_generator = expires_generator
+        self.access_token_generator: SingleTokenGenerator = access_token_generator
+        self.refresh_token_generator: Optional[SingleTokenGenerator] = refresh_token_generator
+        self.expires_generator: Optional[ExpireTokenGenerator] = expires_generator
 
     def _get_expires_in(self, client, grant_type):
         if self.expires_generator is None:
@@ -56,7 +63,10 @@ class BearerTokenGenerator(object):
         return scope
 
     def generate(
-        self, grant_type, client, user=None, scope=None,
+        self,
+        grant_type: str,
+        client: ClientMixin,
+        user=None, scope=None,
         expires_in=None, include_refresh_token=True,
     ):
         """Generate a bearer token for OAuth 2.0 authorization token endpoint.
@@ -71,7 +81,10 @@ class BearerTokenGenerator(object):
         """
         scope = self.get_allowed_scope(client, scope)
         access_token = self.access_token_generator(
-            client=client, grant_type=grant_type, user=user, scope=scope,
+            client=client,
+            grant_type=grant_type,
+            user=user,
+            scope=scope,
         )
         if expires_in is None:
             expires_in = self._get_expires_in(client, grant_type)
@@ -91,7 +104,10 @@ class BearerTokenGenerator(object):
         return token
 
     def __call__(
-        self, grant_type, client, user=None, scope=None,
+        self,
+        grant_type: str,
+        client: ClientMixin,
+        user=None, scope=None,
         expires_in=None, include_refresh_token=True,
     ):
         return self.generate(grant_type, client, user, scope, expires_in, include_refresh_token)

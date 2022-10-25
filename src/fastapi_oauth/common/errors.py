@@ -33,7 +33,7 @@ class BaseError(Exception):
             self.uri = uri
 
         message = '{}: {}'.format(self.error, self.description)
-        super(BaseError, self).__init__(message)
+        super().__init__(message)
 
     def __repr__(self):
         return '<{} "{}">'.format(self.__class__.__name__, self.error)
@@ -82,7 +82,7 @@ class OAuth2Error(HTTPError):
         status_code=None, state=None,
         redirect_uri=None, redirect_fragment=False, error=None,
     ):
-        super(OAuth2Error, self).__init__(error, description, uri, status_code)
+        super().__init__(error, description, uri, status_code)
         self.state = state
         self.redirect_uri = redirect_uri
         self.redirect_fragment = redirect_fragment
@@ -99,4 +99,4 @@ class OAuth2Error(HTTPError):
             params = self.get_body()
             loc = add_params_to_uri(self.redirect_uri, params, self.redirect_fragment)
             return 302, '', [('Location', loc)]
-        return super(OAuth2Error, self).__call__(uri=uri)
+        return super().__call__(uri=uri)
