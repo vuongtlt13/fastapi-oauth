@@ -111,8 +111,8 @@ class OAuth2ClientBase(ClientMixin):
     def software_version(self) -> Optional[str]:
         return self.client_metadata.get('software_version', None)
 
-    def get_client_id(self) -> str:
-        return str(self.client_id)
+    def get_client_id(self):
+        return self.client_id
 
     def get_default_redirect_uri(self) -> Optional[str]:
         if self.redirect_uris:
