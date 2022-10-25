@@ -24,7 +24,7 @@ def scope_to_list(scope: Any):
 
 
 def extract_basic_authorization(headers: Dict[str, str]) -> Tuple[Optional[str], Optional[str]]:
-    auth = headers.get('Authorization', None)
+    auth = headers.get('authorization', None)
     if not auth or ' ' not in auth:
         return None, None
 

@@ -51,6 +51,7 @@ class InvalidClientError(OAuth2Error):
     https://tools.ietf.org/html/rfc6749#section-5.2
     """
     error = 'invalid_client'
+    description = 'Client not found!'
     status_code = status.HTTP_400_BAD_REQUEST
 
     def get_headers(self):
@@ -86,12 +87,14 @@ class UnauthorizedClientError(OAuth2Error):
     https://tools.ietf.org/html/rfc6749#section-5.2
     """
     error = 'unauthorized_client'
+    description = 'Unauthorized Client'
 
 
 class UnsupportedResponseTypeError(OAuth2Error):
     """The authorization server does not support obtaining
     an access token using this method."""
     error = 'unsupported_response_type'
+    description = 'Unsupported Response Type'
 
     def __init__(self, response_type):
         super(UnsupportedResponseTypeError, self).__init__()
@@ -108,6 +111,7 @@ class UnsupportedGrantTypeError(OAuth2Error):
     https://tools.ietf.org/html/rfc6749#section-5.2
     """
     error = 'unsupported_grant_type'
+    description = 'Unsupported Grant Type'
 
     def __init__(self, grant_type):
         super(UnsupportedGrantTypeError, self).__init__()
@@ -169,9 +173,7 @@ class MissingAuthorizationError(ForbiddenError):
 
 class UnsupportedTokenTypeError(ForbiddenError):
     error = 'unsupported_token_type'
-
-
-# -- exceptions for clients -- #
+    description = 'Unsupported Token Type'
 
 
 class MissingCodeException(OAuth2Error):

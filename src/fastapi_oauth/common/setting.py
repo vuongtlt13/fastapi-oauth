@@ -21,8 +21,6 @@ class OAuthSetting(BaseSettings):
         value = list(set(value))
         return value
 
-    OAUTH2_ERROR_URIS: List[Tuple[int, str]] = []
-
     """
     OAUTH2_ACCESS_TOKEN_GENERATOR: Boolean or import string, default is True.
 
