@@ -1,4 +1,5 @@
-from typing import Any, Dict, List, Optional, Tuple, Type
+import json
+from typing import Any, Dict, List, Optional, Tuple, Type, Union
 
 from sqlalchemy.ext.asyncio import AsyncSession
 from starlette.requests import Request
@@ -236,7 +237,16 @@ class AuthorizationServer:
                 return _create_grant(grant_cls, extensions, request, self)
         raise UnsupportedGrantTypeError(request.grant_type)
 
-    async def create_endpoint_response(self, name, request: Request, session: AsyncSession) -> Tuple[int, Any, Dict]:
+    def handle_response(self, status_code: int, payload: Union[Dict, str], headers: Dict) -> Response:
+        if isinstance(payload, dict):
+            payload = json.dumps(payload)
+        return Response(
+            payload,
+            status_code=status_code,
+            headers=headers,
+        )
+
+    async def create_endpoint_response(self, name, request: Request, session: AsyncSession) -> Response:
         """Validate endpoint request and create endpoint response.
 
         :param session: Async SQLAlchemy Session
@@ -249,9 +259,9 @@ class AuthorizationServer:
 
         endpoint = self._endpoints[name]
         oauth_request = await endpoint.create_endpoint_request(request)
-        return await endpoint.create_endpoint_response(oauth_request, session)
+        return self.handle_response(*(await endpoint.create_endpoint_response(oauth_request, session)))
 
-    async def create_authorization_response(self, session: AsyncSession, request: Request, grant_user=None):
+    async def create_authorization_response(self, session: AsyncSession, request: Request, grant_user=None) -> Response:
         """Validate authorization request and create authorization response.
 
         :param session: Async SQLAlchemy session
@@ -264,7 +274,7 @@ class AuthorizationServer:
         grant = self.get_authorization_grant(oauth_request)
 
         redirect_uri = await grant.validate_authorization_request(session)
-        return await grant.create_authorization_response(redirect_uri, grant_user, session)
+        return self.handle_response(*(await grant.create_authorization_response(redirect_uri, grant_user, session)))
 
     async def create_token_response(self, session: AsyncSession, request: Request) -> Response:
         """Validate token request and create token response.
@@ -276,7 +286,7 @@ class AuthorizationServer:
         grant = self.get_token_grant(oauth_request)
 
         await grant.validate_token_request(session)
-        return await grant.create_token_response(session)
+        return self.handle_response(*(await grant.create_token_response(session)))
 
     async def query_client(self, client_id: str, session: AsyncSession) -> Optional[ClientMixin]:
         return await self._query_client(client_id=client_id, session=session)
