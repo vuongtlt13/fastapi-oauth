@@ -9,6 +9,8 @@ class BaseMixin(object):
 
 
 class UserMixin(BaseMixin):
+    id: Any
+
     def get_user_id(self):
         raise NotImplementedError()
 
