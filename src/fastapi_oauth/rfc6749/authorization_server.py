@@ -346,7 +346,7 @@ class AuthorizationServer:
             raise OAuth2Error("Can't create access token generator!")
 
         conf = config.OAUTH2_REFRESH_TOKEN_GENERATOR
-        refresh_token_generator = create_token_generator(conf, REFRESH_TOKEN_LENGTH, allow_none=False)
+        refresh_token_generator = create_token_generator(conf, REFRESH_TOKEN_LENGTH, allow_none=True)
 
         expires_conf = config.OAUTH2_TOKEN_EXPIRES_IN
         expires_generator = create_token_expires_in_generator(expires_conf)

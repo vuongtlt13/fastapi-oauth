@@ -3,9 +3,13 @@
 
     .. _`Section 7`: https://tools.ietf.org/html/rfc6749#section-7
 """
+from typing import Dict, List, Tuple
+
 from sqlalchemy.ext.asyncio import AsyncSession
+from starlette.requests import Request
 
 from .errors import MissingAuthorizationError, UnsupportedTokenTypeError
+from .mixins import TokenMixin
 from .util import scope_to_list
 
 
@@ -36,7 +40,7 @@ class TokenValidator(object):
 
         return True
 
-    async def authenticate_token(self, token_string, session: AsyncSession):
+    async def authenticate_token(self, token_string: str, session: AsyncSession) -> TokenMixin:
         """A method to query token from database with the given token string.
         Developers MUST re-implement this method. For instance::
 
@@ -49,7 +53,7 @@ class TokenValidator(object):
         """
         raise NotImplementedError()
 
-    def validate_request(self, request):
+    def validate_request(self, request: Request):
         """A method to validate if the HTTP request is valid or not. Developers MUST
         re-implement this method.  For instance, your server requires an
         "X-Device-Version" in the header::
@@ -64,8 +68,9 @@ class TokenValidator(object):
         :param request: instance of HttpRequest
         :raise: InvalidRequestError
         """
+        raise NotImplementedError()
 
-    def validate_token(self, token, scopes, request):
+    def validate_token(self, token: TokenMixin, scopes: List[str], request: Request):
         """A method to validate if the authorized token is valid, if it has the
         permission on the given scopes. Developers MUST re-implement this method.
         e.g, check if token is expired, revoked::
@@ -83,7 +88,7 @@ class TokenValidator(object):
 
 class ResourceProtector(object):
     def __init__(self):
-        self._token_validators = {}
+        self._token_validators: Dict[str, TokenValidator] = {}
         self._default_realm = None
         self._default_auth_type = None
 
@@ -105,7 +110,7 @@ class ResourceProtector(object):
             raise UnsupportedTokenTypeError(self._default_auth_type, self._default_realm)
         return validator
 
-    def parse_request_authorization(self, request):
+    def parse_request_authorization(self, request: Request) -> Tuple[TokenValidator, str]:
         """Parse the token and token validator from request Authorization header.
         Here is an example of Authorization header::
 
@@ -118,7 +123,7 @@ class ResourceProtector(object):
         :raise: MissingAuthorizationError
         :raise: UnsupportedTokenTypeError
         """
-        auth = request.headers.get('Authorization')
+        auth = request.headers.get('authorization')
         if not auth:
             raise MissingAuthorizationError(self._default_auth_type, self._default_realm)
 
@@ -131,10 +136,10 @@ class ResourceProtector(object):
         validator = self.get_token_validator(token_type)
         return validator, token_string
 
-    def validate_request(self, scopes, request):
+    async def validate_request(self, scopes: List[str], request: Request, session: AsyncSession) -> TokenMixin:
         """Validate the request and return a token."""
         validator, token_string = self.parse_request_authorization(request)
         validator.validate_request(request)
-        token = validator.authenticate_token(token_string)
+        token = await validator.authenticate_token(token_string, session)
         validator.validate_token(token, scopes, request)
         return token

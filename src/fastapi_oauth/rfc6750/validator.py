@@ -1,19 +1,21 @@
 """
-    fastapi_oauth.rfc6750.validator
-    ~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~
-
     Validate Bearer Token for in request, scope and token.
 """
 from sqlalchemy.ext.asyncio import AsyncSession
+from starlette.requests import Request
 
+from ..rfc6749.mixins import TokenMixin
 from ..rfc6749.resource_protector import TokenValidator
 from .errors import InsufficientScopeError, InvalidTokenError
 
 
 class BearerTokenValidator(TokenValidator):
+    def validate_request(self, request: Request):
+        return True
+
     TOKEN_TYPE = 'bearer'
 
-    async def authenticate_token(self, token_string, session: AsyncSession):
+    async def authenticate_token(self, token_string, session: AsyncSession) -> TokenMixin:
         """A method to query token from database with the given token string.
         Developers MUST re-implement this method. For instance::
 
