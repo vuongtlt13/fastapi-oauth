@@ -1,8 +1,11 @@
+from typing import Any, Dict, Optional, Tuple
+
 from sqlalchemy.ext.asyncio import AsyncSession
+from starlette.requests import Request
 
-from fastapi_oauth.utils.consts import DEFAULT_JSON_HEADERS
-
-from ..rfc6749 import InvalidRequestError, TokenEndpoint, UnsupportedTokenTypeError
+from ..rfc6749 import InvalidRequestError, OAuth2Request, TokenEndpoint, UnsupportedTokenTypeError
+from ..rfc6749.models import OAuth2ClientBase
+from ..utils.consts import DEFAULT_JSON_HEADERS
 
 
 class RevocationEndpoint(TokenEndpoint):
@@ -14,7 +17,7 @@ class RevocationEndpoint(TokenEndpoint):
     #: Endpoint name to be registered
     ENDPOINT_NAME = 'revocation'
 
-    async def authenticate_token(self, request, client, session: AsyncSession):
+    async def authenticate_token(self, request: OAuth2Request, client, session: AsyncSession) -> Optional[OAuth2ClientBase]:
         """The client constructs the request by including the following
         parameters using the "application/x-www-form-urlencoded" format in
         the HTTP request entity-body:
@@ -36,8 +39,9 @@ class RevocationEndpoint(TokenEndpoint):
         token = await self.query_token(request.form['token'], hint, session)
         if token and token.check_client(client):
             return token
+        return None
 
-    async def create_endpoint_response(self, request, session: AsyncSession):
+    async def create_endpoint_response(self, request: OAuth2Request, session: AsyncSession) -> Tuple[int, Any, Dict]:
         """Validate revocation request and create the response for revocation.
         For example, a client may request the revocation of a refresh token
         with the following request::

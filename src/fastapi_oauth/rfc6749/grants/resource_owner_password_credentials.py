@@ -1,5 +1,5 @@
 import logging
-from typing import Tuple, Any, Dict
+from typing import Any, Dict, Tuple
 
 from sqlalchemy.ext.asyncio import AsyncSession
 
@@ -9,7 +9,7 @@ from .base import BaseGrant, TokenEndpointMixin
 log = logging.getLogger(__name__)
 
 
-class ResourceOwnerPasswordCredentialsGrant(BaseGrant, TokenEndpointMixin):
+class ResourceOwnerPasswordCredentialsGrant(TokenEndpointMixin):
     """The resource owner password credentials grant type is suitable in
     cases where the resource owner has a trust relationship with the
     client, such as the device operating system or a highly privileged

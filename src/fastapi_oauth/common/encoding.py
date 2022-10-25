@@ -15,7 +15,7 @@ def to_bytes(x, charset='utf-8', errors='strict') -> Optional[bytes]:
     return bytes(x)
 
 
-def to_unicode(x, charset='utf-8', errors='strict') -> str:
+def to_unicode(x, charset='utf-8', errors='strict') -> Optional[str]:
     if x is None or isinstance(x, str):
         return x
     if isinstance(x, bytes):

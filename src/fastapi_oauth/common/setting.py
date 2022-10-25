@@ -1,4 +1,4 @@
-from typing import Any, Dict, List, Optional, Union
+from typing import Any, Dict, List, Optional, Tuple, Union
 
 from pydantic import BaseSettings, validator
 
@@ -21,7 +21,7 @@ class OAuthSetting(BaseSettings):
         value = list(set(value))
         return value
 
-    OAUTH2_ERROR_URIS: List[str] = ['oauth/error']
+    OAUTH2_ERROR_URIS: List[Tuple[int, str]] = []
 
     """
     OAUTH2_ACCESS_TOKEN_GENERATOR: Boolean or import string, default is True.

@@ -9,7 +9,7 @@ from .base import AuthorizationEndpointMixin, BaseGrant
 log = logging.getLogger(__name__)
 
 
-class ImplicitGrant(BaseGrant, AuthorizationEndpointMixin):
+class ImplicitGrant(AuthorizationEndpointMixin):
     """The implicit grant type is used to obtain access tokens (it does not
     support the issuance of refresh tokens) and is optimized for public
     clients known to operate a particular redirection URI.  These clients
@@ -127,7 +127,7 @@ class ImplicitGrant(BaseGrant, AuthorizationEndpointMixin):
         )
 
         response_type = self.request.response_type
-        if not client.check_response_type(response_type):
+        if response_type is None or not client.check_response_type(response_type):
             raise UnauthorizedClientError(
                 'The client is not authorized to use '
                 '"response_type={}"'.format(response_type),
