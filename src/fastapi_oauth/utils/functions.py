@@ -9,9 +9,8 @@ from werkzeug.utils import import_string
 from ..common.security import generate_token
 from ..common.types import QueryClientFn, QueryTokenFn, SaveTokenFn
 from ..rfc6749.mixins import ClientMixin, TokenMixin
-from ..rfc6749.models import OAuth2TokenBase
 from ..rfc6749.wrappers import OAuth2Request
-from ..rfc6750 import BearerTokenGenerator
+from ..rfc6750.token import BearerTokenGenerator
 
 
 def create_query_client_func(client_model: Type[ClientMixin]) -> QueryClientFn:
@@ -83,7 +82,7 @@ def create_revocation_endpoint(token_model: Type[TokenMixin]):
     """
     query_token = create_query_token_func(token_model)
 
-    from ..rfc7009 import RevocationEndpoint
+    from ..rfc7009.revocation import RevocationEndpoint
 
     class _RevocationEndpoint(RevocationEndpoint):
         async def query_token(self, token: str, token_type_hint: str, session: AsyncSession):
@@ -107,7 +106,7 @@ def create_bearer_token_validator(token_model: Type[TokenMixin]):
 
     :param token_model: Token model class
     """
-    from ..rfc6750 import BearerTokenValidator
+    from ..rfc6750.validator import BearerTokenValidator
 
     class _BearerTokenValidator(BearerTokenValidator):
         async def authenticate_token(self, token_string, session: AsyncSession):

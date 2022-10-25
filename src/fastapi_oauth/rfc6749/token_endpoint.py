@@ -32,7 +32,7 @@ class TokenEndpoint(object):
         request.client = client
         return client
 
-    async def authenticate_token(self, request: OAuth2Request, client, session: AsyncSession) -> Optional[OAuth2ClientBase]:
+    async def authenticate_token(self, request: OAuth2Request, client, session: AsyncSession) -> Optional[ClientMixin]:
         raise NotImplementedError()
 
     async def create_endpoint_response(self, request: OAuth2Request, session: AsyncSession) -> Tuple[int, Any, Dict]:

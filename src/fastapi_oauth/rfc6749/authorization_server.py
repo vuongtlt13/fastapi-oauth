@@ -9,7 +9,7 @@ from ..common.errors import OAuth2Error
 from ..common.setting import OAuthSetting
 from ..common.types import AuthenticateClientFn, QueryClientFn, SaveTokenFn, TokenGenerator
 from ..rfc6749.signals import client_authenticated, token_revoked
-from ..rfc6750 import BearerTokenGenerator
+from ..rfc6750.token import BearerTokenGenerator
 from ..utils.consts import ACCESS_TOKEN_LENGTH, REFRESH_TOKEN_LENGTH
 from ..utils.functions import (
     create_oauth_request,
@@ -18,10 +18,11 @@ from ..utils.functions import (
     create_token_expires_in_generator,
     create_token_generator,
 )
-from . import ClientMixin, TokenEndpoint, TokenMixin
 from .authenticate_client import ClientAuthentication
 from .errors import InvalidScopeError, UnsupportedGrantTypeError, UnsupportedResponseTypeError
-from .grants import BaseGrant
+from .grants.base import BaseGrant
+from .mixins import ClientMixin, TokenMixin
+from .token_endpoint import TokenEndpoint
 from .util import scope_to_list
 from .wrappers import OAuth2Request
 
