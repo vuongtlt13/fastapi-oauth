@@ -1,18 +1,20 @@
 import json
-from typing import Any, Dict, List, Optional, Tuple, Type, Union
+from typing import Dict, List, Optional, Tuple, Type, Union
 
+from fastapi import FastAPI
 from sqlalchemy.ext.asyncio import AsyncSession
 from starlette.requests import Request
 from starlette.responses import Response
 
-from ..common.errors import OAuth2Error
+from ..common.context import OAuthContext
+from ..common.deps import ContextDependency, OAuthDependency
+from ..common.errors import OAuth2Error, SessionOAuthContextError, UnsetQueryClientError, UnsetSaveTokenError
 from ..common.setting import OAuthSetting
-from ..common.types import AuthenticateClientFn, GroupTokenGenerator, QueryClientFn, SaveTokenFn
+from ..common.types import AuthenticateClientFn, GrantExtension, GroupTokenGenerator, QueryClientFn, SaveTokenFn
 from ..rfc6749.signals import client_authenticated, token_revoked
 from ..rfc6750.token import BearerTokenGenerator
 from ..utils.consts import ACCESS_TOKEN_LENGTH, REFRESH_TOKEN_LENGTH
 from ..utils.functions import (
-    create_oauth_request,
     create_query_client_func,
     create_save_token_func,
     create_token_expires_in_generator,
@@ -27,7 +29,7 @@ from .util import scope_to_list
 from .wrappers import OAuth2Request
 
 
-class AuthorizationServer:
+class AuthorizationServer(OAuthDependency):
     """Authorization server that handles Authorization Endpoint and Token
     Endpoint.
 
@@ -35,38 +37,53 @@ class AuthorizationServer:
 
     def __init__(
         self,
-        config: OAuthSetting,
-        oauth_client_model_cls: Type[ClientMixin],
-        oauth_token_model_cls: Type[TokenMixin],
+        context_dependency: ContextDependency,
+        oauth_client_model_cls: Type[ClientMixin] = None,
+        oauth_token_model_cls: Type[TokenMixin] = None,
         query_client_fn: QueryClientFn = None,
         save_token_fn: SaveTokenFn = None,
     ):
-        self.oauth_client_model_cls: Type[ClientMixin] = oauth_client_model_cls
-        self.oauth_token_model_cls: Type[TokenMixin] = oauth_token_model_cls
-
+        super().__init__(context_dependency)
         self.supported_scopes: List[str] = []
         self._token_generators: Dict[str, GroupTokenGenerator] = {}
         self._client_auth: Optional[ClientAuthentication] = None
-        self._authorization_grants: List[Tuple[Type[BaseGrant], Any]] = []
-        self._token_grants: List[Tuple[Type[BaseGrant], Any]] = []
+        self._authorization_grants: List[Tuple[Type[BaseGrant], List[GrantExtension]]] = []
+        self._token_grants: List[Tuple[Type[BaseGrant], List[GrantExtension]]] = []
         self._endpoints: Dict[str, TokenEndpoint] = {}
 
-        self._config: OAuthSetting = config
-        self._query_client: QueryClientFn = query_client_fn or create_query_client_func(self.oauth_client_model_cls)
-        self._save_token: SaveTokenFn = save_token_fn or create_save_token_func(self.oauth_token_model_cls)
+        self._query_client: Optional[QueryClientFn] = query_client_fn
+        if self._query_client is None and oauth_client_model_cls is not None:
+            self._query_client = create_query_client_func(oauth_client_model_cls)
 
-    def init_app(self, config: OAuthSetting, query_client: QueryClientFn = None, save_token: SaveTokenFn = None):
+        self._save_token: Optional[SaveTokenFn] = save_token_fn
+        if self._save_token is None and oauth_token_model_cls is not None:
+            self._save_token = create_save_token_func(oauth_token_model_cls)
+
+        self._config: Optional[OAuthSetting] = None
+        self._app: Optional[FastAPI] = None
+
+    def init_app(
+        self,
+        config: OAuthSetting,
+        query_client: QueryClientFn = None,
+        save_token: SaveTokenFn = None,
+    ):
         """Initialize later with FastAPI app instance."""
         self._config = config
+        self._register_token_generator('default', self._create_bearer_token_generator(self._config))
+        self.supported_scopes = self._config.OAUTH2_SCOPES_SUPPORTED
+
         if query_client is not None:
             self._query_client = query_client
         if save_token is not None:
             self._save_token = save_token
 
-        self.register_token_generator('default', self.create_bearer_token_generator(self._config))
-        self.supported_scopes = self._config.OAUTH2_SCOPES_SUPPORTED
+        if self._query_client is None:
+            raise UnsetQueryClientError()
+        if self._save_token is None:
+            raise UnsetSaveTokenError()
 
-    def generate_token(
+    def _generate_token(
         self,
         grant_type: str,
         client: ClientMixin,
@@ -95,7 +112,7 @@ class AuthorizationServer:
 
         return func(grant_type, client, user, scope, expires_in, include_refresh_token)
 
-    def register_token_generator(self, grant_type: str, func: GroupTokenGenerator):
+    def _register_token_generator(self, grant_type: str, func: GroupTokenGenerator):
         """Register a function as token generator for the given ``grant_type``.
         Developers MUST register a default token generator with a special
         ``grant_type=default``::
@@ -139,7 +156,7 @@ class AuthorizationServer:
             endpoint=endpoint,
         )
 
-    def register_client_auth_method(self, method: str, func: AuthenticateClientFn):
+    def _register_client_auth_method(self, method: str, func: AuthenticateClientFn):
         """Add more client auth method. The default methods are:
 
         * none: The client is a public client and does not have a client secret
@@ -166,7 +183,7 @@ class AuthorizationServer:
 
         self._client_auth.register(method, func)
 
-    def validate_requested_scope(self, scope, state=None):
+    def _validate_requested_scope(self, scope, state=None):
         """Validate if requested scope is supported by Authorization Server.
         Developers CAN re-write this method to meet your needs.
         """
@@ -175,7 +192,7 @@ class AuthorizationServer:
             if not set(self.supported_scopes).issuperset(scopes):
                 raise InvalidScopeError(state=state)
 
-    def register_grant(self, grant_cls: Type[BaseGrant], extensions=None):
+    def register_grant(self, grant_cls: Type[BaseGrant], extensions: List[GrantExtension] = None):
         """Register a grant class into the endpoint registry. Developers
         can implement the grants in ``fastapi_oauth.rfc6749.grants`` and
         register with this method::
@@ -189,6 +206,9 @@ class AuthorizationServer:
         :param grant_cls: a grant class.
         :param extensions: extensions for the grant class.
         """
+        if extensions is None:
+            extensions = []
+
         if hasattr(grant_cls, 'check_authorization_endpoint'):
             self._authorization_grants.append((grant_cls, extensions))
         if hasattr(grant_cls, 'check_token_endpoint'):
@@ -204,7 +224,7 @@ class AuthorizationServer:
         """
         self._endpoints[endpoint_cls.ENDPOINT_NAME] = endpoint_cls(self)
 
-    def get_authorization_grant(self, request) -> BaseGrant:
+    def _get_authorization_grant(self, request) -> BaseGrant:
         """Find the authorization grant for current request.
 
         :param request: OAuth2Request instance.
@@ -212,21 +232,27 @@ class AuthorizationServer:
         """
         for (grant_cls, extensions) in self._authorization_grants:
             if grant_cls.check_authorization_endpoint(request):
-                return _create_grant(grant_cls, extensions, request, self)
+                return _create_grant(
+                    grant_cls=grant_cls,
+                    extensions=extensions,
+                    request=request,
+                    server=self,
+                )
         raise UnsupportedResponseTypeError(request.response_type)
 
-    async def get_consent_grant(self, session: AsyncSession, request: Request, end_user=None):
+    async def get_consent_grant(self, context: OAuthContext) -> BaseGrant:
         """Validate current HTTP request for authorization page. This page
         is designed for resource owner to grant or deny the authorization.
         """
-        oauth_request = await self.create_oauth2_request(request)
-        oauth_request.user = end_user
+        grant = self._get_authorization_grant(context.request)
 
-        grant = self.get_authorization_grant(oauth_request)
-        await grant.validate_consent_request(session)
+        if not context.session:
+            raise SessionOAuthContextError()
+
+        await grant.validate_consent_request(context.session)
         return grant
 
-    def get_token_grant(self, request: OAuth2Request) -> BaseGrant:
+    def _get_token_grant(self, request: OAuth2Request) -> BaseGrant:
         """Find the token grant for current request.
 
         :param request: OAuth2Request instance.
@@ -234,10 +260,16 @@ class AuthorizationServer:
         """
         for (grant_cls, extensions) in self._token_grants:
             if grant_cls.check_token_endpoint(request):
-                return _create_grant(grant_cls, extensions, request, self)
+                return _create_grant(
+                    grant_cls=grant_cls,
+                    extensions=extensions,
+                    request=request,
+                    server=self,
+                )
         raise UnsupportedGrantTypeError(request.grant_type)
 
-    def handle_response(self, status_code: int, payload: Union[Dict, str], headers: Dict) -> Response:
+    @classmethod
+    def _handle_response(cls, status_code: int, payload: Union[Dict, str], headers: Dict) -> Response:
         if isinstance(payload, dict):
             payload = json.dumps(payload)
         return Response(
@@ -246,7 +278,7 @@ class AuthorizationServer:
             headers=headers,
         )
 
-    async def create_endpoint_response(self, name, request: Request, session: AsyncSession) -> Response:
+    async def _create_endpoint_response(self, name, request: Request, session: AsyncSession) -> Response:
         """Validate endpoint request and create endpoint response.
 
         :param session: Async SQLAlchemy Session
@@ -259,47 +291,52 @@ class AuthorizationServer:
 
         endpoint = self._endpoints[name]
         oauth_request = await endpoint.create_endpoint_request(request)
-        return self.handle_response(*(await endpoint.create_endpoint_response(oauth_request, session)))
+        return self._handle_response(*(await endpoint.create_endpoint_response(oauth_request, session)))
 
-    async def create_authorization_response(self, session: AsyncSession, request: Request, grant_user=None) -> Response:
+    async def create_authorization_response(self, context: OAuthContext) -> Response:
         """Validate authorization request and create authorization response.
 
-        :param session: Async SQLAlchemy session
-        :param request: HTTP request instance.
-        :param grant_user: if granted, it is resource owner. If denied,
-            it is None.
+        :param context: OAuthContext
         :returns: Response
         """
-        oauth_request = await self.create_oauth2_request(request)
-        grant = self.get_authorization_grant(oauth_request)
+        grant = self._get_authorization_grant(context.request)
 
-        redirect_uri = await grant.validate_authorization_request(session)
-        return self.handle_response(*(await grant.create_authorization_response(redirect_uri, grant_user, session)))
+        if not context.session:
+            raise SessionOAuthContextError()
 
-    async def create_token_response(self, session: AsyncSession, request: Request) -> Response:
+        redirect_uri = await grant.validate_authorization_request(context.session)
+        return self._handle_response(
+            *(
+                await grant.create_authorization_response(
+                    redirect_uri=redirect_uri,
+                    grant_user=context.user_from_session,
+                    session=context.session,
+                )
+            )
+        )
+
+    async def create_token_response(self, context: OAuthContext) -> Response:
         """Validate token request and create token response.
 
-        :param session: Async SQLAlchemy session
-        :param request: HTTP request instance
+        :param context: context: OAuthContext
         """
-        oauth_request = await self.create_oauth2_request(request)
-        grant = self.get_token_grant(oauth_request)
+        grant = self._get_token_grant(context.request)
 
-        await grant.validate_token_request(session)
-        return self.handle_response(*(await grant.create_token_response(session)))
+        if not context.session:
+            raise SessionOAuthContextError()
+
+        await grant.validate_token_request(context.session)
+        return self._handle_response(*(await grant.create_token_response(context.session)))
 
     async def query_client(self, client_id: str, session: AsyncSession) -> Optional[ClientMixin]:
+        if self._query_client is None:
+            raise UnsetQueryClientError()
         return await self._query_client(client_id=client_id, session=session)
 
     async def save_token(self, token: Dict, request: OAuth2Request, session: AsyncSession):
+        if self._save_token is None:
+            raise UnsetSaveTokenError()
         return await self._save_token(token, request, session)
-
-    async def create_oauth2_request(self, request: Request) -> OAuth2Request:
-        return await create_oauth_request(
-            request=request,
-            request_cls=OAuth2Request,
-            allow_insecure_transport=self._config.OAUTH2_ALLOW_INSECURE_TRANSPORT,
-        )
 
     def send_signal(self, name, *args, **kwargs):
         if name == 'after_authenticate_client':
@@ -308,7 +345,7 @@ class AuthorizationServer:
             token_revoked.send(self, *args, **kwargs)
 
     @classmethod
-    def create_bearer_token_generator(cls, config: OAuthSetting) -> BearerTokenGenerator:
+    def _create_bearer_token_generator(cls, config: OAuthSetting) -> BearerTokenGenerator:
         """Create a generator function for generating ``token`` value. This
         method will create a Bearer Token generator with
         :class:`fastapi_oauth.rfc6750.BearerToken`.
@@ -359,9 +396,9 @@ class AuthorizationServer:
 
 def _create_grant(
     grant_cls: Type[BaseGrant],
-    extensions,
-    request,
+    request: OAuth2Request,
     server: AuthorizationServer,
+    extensions: List[GrantExtension],
 ):
     grant = grant_cls(request, server)
     if extensions:
