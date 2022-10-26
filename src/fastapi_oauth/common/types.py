@@ -1,8 +1,9 @@
 import sys
-from typing import Any, Callable, Coroutine, Dict, List, Optional, Protocol, Type, TypeVar
+from typing import Any, Dict, List, Optional, Protocol
 
 from sqlalchemy.ext.asyncio import AsyncSession
 
+from ..rfc6749.grants import BaseGrant
 from ..rfc6749.mixins import ClientMixin, TokenMixin
 from ..rfc6749.wrappers import OAuth2Request
 
@@ -84,6 +85,11 @@ class ExpireTokenGenerator(Protocol):
         grant_type: str,
     ) -> Dict:
         ...
+
+
+class GrantExtension(object):
+    def __call__(self, grant: BaseGrant):
+        raise NotImplementedError()
 
 
 ClientMetadataDict = TypedDict(

@@ -3,6 +3,7 @@ import re
 
 from ..common.encoding import to_bytes, to_unicode, urlsafe_b64encode
 from ..rfc6749.errors import InvalidGrantError, InvalidRequestError
+from ..rfc6749.grants import BaseGrant
 
 CODE_VERIFIER_PATTERN = re.compile(r'^[a-zA-Z0-9\-._~]{43,128}$')
 
@@ -52,7 +53,7 @@ class CodeChallenge(object):
     def __init__(self, required=True):
         self.required = required
 
-    def __call__(self, grant):
+    def __call__(self, grant: BaseGrant):
         grant.register_hook(
             'after_validate_authorization_request',
             self.validate_code_challenge,

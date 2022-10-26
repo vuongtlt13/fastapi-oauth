@@ -100,3 +100,33 @@ class OAuth2Error(HTTPError):
             loc = add_params_to_uri(self.redirect_uri, params, self.redirect_fragment)
             return 302, '', [('Location', loc)]
         return super().__call__(uri=uri)
+
+
+class SessionOAuthContextError(OAuth2Error):
+    error = 'database_session_not_found'
+    description = 'Database session not found!'
+    status_code = status.HTTP_500_INTERNAL_SERVER_ERROR
+
+
+class MissingQueryClientError(OAuth2Error):
+    error = 'database_session_not_found'
+    description = 'Database session not found!'
+    status_code = status.HTTP_500_INTERNAL_SERVER_ERROR
+
+
+class UnsetQueryTokenError(OAuth2Error):
+    error = 'unset_query_token'
+    description = 'Function query_token is not set! query_token function can be set by calling init_app function!'
+    status_code = status.HTTP_500_INTERNAL_SERVER_ERROR
+
+
+class UnsetSaveTokenError(OAuth2Error):
+    error = 'unset_save_token'
+    description = 'Function save_token is not set! save_token function can be set by calling init_app function!'
+    status_code = status.HTTP_500_INTERNAL_SERVER_ERROR
+
+
+class UnsetQueryClientError(OAuth2Error):
+    error = 'unset_query_client'
+    description = 'Function query_client is not set! query_client function can be set by calling init_app function!'
+    status_code = status.HTTP_500_INTERNAL_SERVER_ERROR
