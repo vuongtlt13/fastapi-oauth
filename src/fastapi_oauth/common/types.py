@@ -1,11 +1,13 @@
 import sys
-from typing import Any, Dict, List, Optional, Protocol
+from dataclasses import dataclass
+from typing import Any, Dict, List, Optional, Protocol, TYPE_CHECKING, Callable, Coroutine, AsyncIterator
 
 from sqlalchemy.ext.asyncio import AsyncSession
 
-from ..rfc6749.grants import BaseGrant
-from ..rfc6749.mixins import ClientMixin, TokenMixin
-from ..rfc6749.wrappers import OAuth2Request
+if TYPE_CHECKING:
+    from ..rfc6749.grants import BaseGrant
+    from ..rfc6749.mixins import ClientMixin, TokenMixin, UserMixin
+    from ..rfc6749.wrappers import OAuth2Request
 
 if sys.version_info >= (3, 8):
     from typing import TypedDict
@@ -18,7 +20,7 @@ class QueryClientFn(Protocol):
         self,
         client_id: str,
         session: AsyncSession,
-    ) -> Optional[ClientMixin]:
+    ) -> Optional["ClientMixin"]:
         ...
 
 
@@ -28,7 +30,7 @@ class QueryTokenFn(Protocol):
         token: str,
         token_type_hint: str,
         session: AsyncSession,
-    ) -> Optional[TokenMixin]:
+    ) -> Optional["TokenMixin"]:
         ...
 
 
@@ -36,7 +38,7 @@ class SaveTokenFn(Protocol):
     async def __call__(
         self,
         token: Dict,
-        request: OAuth2Request,
+        request: "OAuth2Request",
         session: AsyncSession,
     ) -> Any:
         ...
@@ -46,9 +48,9 @@ class AuthenticateClientFn(Protocol):
     async def __call__(
         self,
         query_client: QueryClientFn,
-        request: OAuth2Request,
+        request: "OAuth2Request",
         session: AsyncSession,
-    ) -> Optional[ClientMixin]:
+    ) -> Optional["ClientMixin"]:
         ...
 
 
@@ -56,7 +58,7 @@ class SingleTokenGenerator(Protocol):
     def __call__(
         self,
         grant_type: str,
-        client: ClientMixin,
+        client: "ClientMixin",
         user=None,
         scope=None,
         expires_in: int = None,
@@ -69,7 +71,7 @@ class GroupTokenGenerator(Protocol):
     def __call__(
         self,
         grant_type: str,
-        client: ClientMixin,
+        client: "ClientMixin",
         user=None,
         scope=None,
         expires_in: int = None,
@@ -81,14 +83,14 @@ class GroupTokenGenerator(Protocol):
 class ExpireTokenGenerator(Protocol):
     def __call__(
         self,
-        client: ClientMixin,
+        client: "ClientMixin",
         grant_type: str,
     ) -> Dict:
         ...
 
 
 class GrantExtension(object):
-    def __call__(self, grant: BaseGrant):
+    def __call__(self, grant: "BaseGrant"):
         raise NotImplementedError()
 
 
@@ -129,3 +131,10 @@ OAuth2RequestDataPayloadDict = TypedDict(
     },
     total=False,
 )
+
+
+@dataclass
+class ContextDependency:
+    get_db_session: Callable[..., Coroutine[Any, Any, AsyncIterator[AsyncSession]]]
+    get_user_from_session: Callable[..., Coroutine[Any, Any, Optional["UserMixin"]]]
+    get_user_from_token: Callable[..., Coroutine[Any, Any, Optional["UserMixin"]]]

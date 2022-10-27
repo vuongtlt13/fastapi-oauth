@@ -1,5 +1,5 @@
 import json
-from typing import Dict, List, Optional, Tuple, Type, Union
+from typing import Dict, List, Optional, Tuple, Type, Union, TYPE_CHECKING
 
 from fastapi import FastAPI
 from sqlalchemy.ext.asyncio import AsyncSession
@@ -7,10 +7,11 @@ from starlette.requests import Request
 from starlette.responses import Response
 
 from ..common.context import OAuthContext
-from ..common.deps import ContextDependency, OAuthDependency
+from ..common.deps import OAuthDependency
 from ..common.errors import OAuth2Error, SessionOAuthContextError, UnsetQueryClientError, UnsetSaveTokenError
 from ..common.setting import OAuthSetting
-from ..common.types import AuthenticateClientFn, GrantExtension, GroupTokenGenerator, QueryClientFn, SaveTokenFn
+from ..common.types import AuthenticateClientFn, GrantExtension, GroupTokenGenerator, QueryClientFn, SaveTokenFn, \
+    ContextDependency
 from ..rfc6749.signals import client_authenticated, token_revoked
 from ..rfc6750.token import BearerTokenGenerator
 from ..utils.consts import ACCESS_TOKEN_LENGTH, REFRESH_TOKEN_LENGTH
@@ -42,8 +43,12 @@ class AuthorizationServer(OAuthDependency):
         oauth_token_model_cls: Type[TokenMixin] = None,
         query_client_fn: QueryClientFn = None,
         save_token_fn: SaveTokenFn = None,
+        request_cls: Type[OAuth2Request] = OAuth2Request,
     ):
-        super().__init__(context_dependency)
+        super().__init__(
+            context_dependency=context_dependency,
+            request_cls=request_cls
+        )
         self.supported_scopes: List[str] = []
         self._token_generators: Dict[str, GroupTokenGenerator] = {}
         self._client_auth: Optional[ClientAuthentication] = None
