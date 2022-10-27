@@ -1,11 +1,18 @@
 import json
-from typing import Dict, List, Optional, Tuple, Type, Union, TYPE_CHECKING
+from typing import Dict, List, Optional, Tuple, Type, Union
 
 from fastapi import FastAPI
 from sqlalchemy.ext.asyncio import AsyncSession
 from starlette.requests import Request
 from starlette.responses import Response
 
+from .authenticate_client import ClientAuthentication
+from .errors import InvalidScopeError, UnsupportedGrantTypeError, UnsupportedResponseTypeError
+from .grants.base import BaseGrant
+from .mixins import ClientMixin, TokenMixin, UserMixin
+from .token_endpoint import TokenEndpoint
+from .util import scope_to_list
+from .wrappers import OAuth2Request
 from ..common.context import OAuthContext
 from ..common.deps import OAuthDependency
 from ..common.errors import OAuth2Error, SessionOAuthContextError, UnsetQueryClientError, UnsetSaveTokenError
@@ -21,13 +28,6 @@ from ..utils.functions import (
     create_token_expires_in_generator,
     create_token_generator,
 )
-from .authenticate_client import ClientAuthentication
-from .errors import InvalidScopeError, UnsupportedGrantTypeError, UnsupportedResponseTypeError
-from .grants.base import BaseGrant
-from .mixins import ClientMixin, TokenMixin
-from .token_endpoint import TokenEndpoint
-from .util import scope_to_list
-from .wrappers import OAuth2Request
 
 
 class AuthorizationServer(OAuthDependency):
@@ -188,7 +188,7 @@ class AuthorizationServer(OAuthDependency):
 
         self._client_auth.register(method, func)
 
-    def _validate_requested_scope(self, scope, state=None):
+    def validate_requested_scope(self, scope, state=None):
         """Validate if requested scope is supported by Authorization Server.
         Developers CAN re-write this method to meet your needs.
         """
@@ -283,24 +283,24 @@ class AuthorizationServer(OAuthDependency):
             headers=headers,
         )
 
-    async def _create_endpoint_response(self, name, request: Request, session: AsyncSession) -> Response:
+    async def create_endpoint_response(self, name, context: OAuthContext) -> Response:
         """Validate endpoint request and create endpoint response.
 
-        :param session: Async SQLAlchemy Session
+        :param context: OAuthContext
         :param name: Endpoint name
-        :param request: HTTP request instance.
         :return: Response
         """
         if name not in self._endpoints:
             raise RuntimeError(f'There is no "{name}" endpoint.')
 
         endpoint = self._endpoints[name]
-        oauth_request = await endpoint.create_endpoint_request(request)
-        return self._handle_response(*(await endpoint.create_endpoint_response(oauth_request, session)))
+        return self._handle_response(*(await endpoint.create_endpoint_response(context)))
 
-    async def create_authorization_response(self, context: OAuthContext) -> Response:
+    async def create_authorization_response(self, context: OAuthContext, grant_user: Optional["UserMixin"]) -> Response:
         """Validate authorization request and create authorization response.
 
+        :param grant_user: if resource owner granted the request, pass this
+            resource owner, otherwise pass None.
         :param context: OAuthContext
         :returns: Response
         """
@@ -314,7 +314,7 @@ class AuthorizationServer(OAuthDependency):
             *(
                 await grant.create_authorization_response(
                     redirect_uri=redirect_uri,
-                    grant_user=context.user_from_session,
+                    grant_user=grant_user,
                     session=context.session,
                 )
             )

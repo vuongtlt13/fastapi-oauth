@@ -1,20 +1,24 @@
 import logging
-from typing import Dict, Tuple
+from typing import Dict, Tuple, Optional, TYPE_CHECKING
 
 from sqlalchemy.ext.asyncio import AsyncSession
 
-from ...common.security import generate_token
-from ...common.urls import add_params_to_uri
+from .base import AuthorizationEndpointMixin, TokenEndpointMixin
 from ..errors import (
     AccessDeniedError,
     InvalidClientError,
     InvalidGrantError,
     InvalidRequestError,
-    OAuth2Error,
     UnauthorizedClientError,
 )
+
 from ..wrappers import OAuth2Request
-from .base import AuthorizationEndpointMixin, BaseGrant, TokenEndpointMixin
+from ...common.errors import OAuth2Error
+from ...common.security import generate_token
+from ...common.urls import add_params_to_uri
+
+if TYPE_CHECKING:
+    from ..mixins import UserMixin
 
 log = logging.getLogger(__name__)
 
@@ -115,7 +119,7 @@ class AuthorizationCodeGrant(AuthorizationEndpointMixin, TokenEndpointMixin):
     async def create_authorization_response(
         self,
         redirect_uri: str,
-        grant_user,
+        grant_user: Optional["UserMixin"],
         session: AsyncSession,
     ) -> Tuple[int, str, Dict]:
         """If the resource owner grants the access request, the authorization

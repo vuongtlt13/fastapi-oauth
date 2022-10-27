@@ -1,4 +1,4 @@
-from typing import Optional, Type, TYPE_CHECKING
+from typing import Optional, Type, TYPE_CHECKING, Callable, Coroutine, Any
 
 from fastapi import Depends
 from sqlalchemy.ext.asyncio import AsyncSession
@@ -11,12 +11,14 @@ if TYPE_CHECKING:
     from ..rfc6749.mixins import UserMixin
     from ..rfc6749.wrappers import OAuth2Request
     from .types import ContextDependency
+    from .setting import OAuthSetting
 
 
 class OAuthDependency(object):
     """
     OAuth Dependency for FastAPI
     """
+    _config: Optional["OAuthSetting"]
 
     def __init__(
         self,
@@ -26,15 +28,13 @@ class OAuthDependency(object):
         self.context_dependency = context_dependency
         self._request_cls = request_cls
 
-    async def get_oauth_context(
+    def get_oauth_context(
         self,
-        request: Request,
-        request_cls: Type["OAuth2Request"] = None,
-    ) -> OAuthContext:
+        request_cls: Type["OAuth2Request"] = None
+    ) -> Callable[..., Coroutine[Any, Any, OAuthContext]]:
         """
         Get OAuth Context Dependency for FastAPI
         :param request_cls: OAuth2Request class
-        :param request: starlette request instance
         :return:
         """
         get_db_session = self.context_dependency.get_db_session
@@ -42,13 +42,19 @@ class OAuthDependency(object):
         get_user_from_token = self.context_dependency.get_user_from_token
 
         async def build_oauth_context(
+            request: Request,
             session: AsyncSession = Depends(get_db_session),
             user_from_session: Optional["UserMixin"] = Depends(get_user_from_session),
             user_from_token: Optional["UserMixin"] = Depends(get_user_from_token),
         ) -> OAuthContext:
+            allow_insecure_transport = False
+            if self._config:
+                allow_insecure_transport = self._config.OAUTH2_ALLOW_INSECURE_TRANSPORT
+
             oauth_request = await create_oauth_request(
                 request=request,
                 request_cls=request_cls or self._request_cls,
+                allow_insecure_transport=allow_insecure_transport
             )
             return OAuthContext(
                 request=oauth_request,
@@ -57,4 +63,4 @@ class OAuthDependency(object):
                 user_from_session=user_from_session,
             )
 
-        return await build_oauth_context()
+        return build_oauth_context
