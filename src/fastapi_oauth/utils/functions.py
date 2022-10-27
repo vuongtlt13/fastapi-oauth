@@ -10,7 +10,7 @@ from ..common.context import OAuthContext
 from ..common.errors import OAuth2Error
 from ..common.security import generate_token
 from ..common.types import ExpireTokenGenerator, QueryClientFn, QueryTokenFn, SaveTokenFn, SingleTokenGenerator
-from ..rfc6749.mixins import ClientMixin, TokenMixin
+from ..rfc6749.mixins import ClientMixin, TokenMixin, UserMixin
 from ..rfc6749.wrappers import OAuth2Request
 from ..rfc6750.token import BearerTokenGenerator
 
@@ -104,16 +104,21 @@ def create_revocation_endpoint(token_model: Type[TokenMixin]):
     return _RevocationEndpoint
 
 
-def create_bearer_token_validator(token_model: Type[TokenMixin]):
+def create_bearer_token_validator(token_model: Type[TokenMixin], user_model: Type[UserMixin]):
     """Create a bearer token validator class with SQLAlchemy session
     and token model.
 
+    :param user_model: User model class
     :param token_model: Token model class
     """
     from ..rfc6750.validator import BearerTokenValidator
 
     class _BearerTokenValidator(BearerTokenValidator):
-        async def authenticate_token(self, token_string, session: AsyncSession):
+        async def query_user(self, token: TokenMixin, session: AsyncSession) -> Optional[UserMixin]:
+            q = select(user_model)
+            return (await session.scalars(q.filter_by(id=token.user_id))).first()
+
+        async def authenticate_token(self, token_string, session: AsyncSession) -> Optional[TokenMixin]:
             q = select(token_model)
             return (await session.scalars(q.filter_by(access_token=token_string))).first()
 
