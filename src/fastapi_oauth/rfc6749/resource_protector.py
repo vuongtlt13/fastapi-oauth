@@ -3,10 +3,11 @@
 
     .. _`Section 7`: https://tools.ietf.org/html/rfc6749#section-7
 """
+import asyncio
 import functools
 import logging
 from contextlib import contextmanager
-from typing import Dict, List, Optional, Tuple
+from typing import Dict, List, Optional, Tuple, Union
 
 from sqlalchemy.ext.asyncio import AsyncSession
 from starlette import status
@@ -33,7 +34,7 @@ class TokenValidator(object):
         self.extra_attributes = extra_attributes
 
     @staticmethod
-    def scope_insufficient(token_scopes, required_scopes):
+    def scope_insufficient(token_scopes: str, required_scopes: List[str]):
         if not required_scopes:
             return False
 
@@ -201,10 +202,13 @@ class ResourceProtector(object):
         except OAuth2Error:
             raise
 
-    def require_scope(self, scopes: List[str] = None, optional=False):
+    def require_scope(self, scopes: Union[List[str], str] = None, optional=False):
+        if isinstance(scopes, str):
+            scopes = [scopes]
+
         def wrapper(f):
             @functools.wraps(f)
-            def decorated(*args, **kwargs):
+            async def decorated(*args, **kwargs):
                 # find context object
                 context: Optional[OAuthContext] = None
                 for arg in args:
@@ -227,13 +231,20 @@ class ResourceProtector(object):
                     )
 
                 try:
-                    self.acquire_token(context=context, scopes=scopes)
+                    await self.acquire_token(context=context, scopes=scopes)
                 except MissingAuthorizationError:
                     if optional:
+                        if asyncio.iscoroutinefunction(f):
+                            return await f(*args, **kwargs)
+
                         return f(*args, **kwargs)
                     raise
                 except OAuth2Error:
                     raise
+
+                if asyncio.iscoroutinefunction(f):
+                    return await f(*args, **kwargs)
+
                 return f(*args, **kwargs)
 
             return decorated
