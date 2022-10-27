@@ -6,19 +6,18 @@ from sqlalchemy.ext.asyncio import AsyncSession
 from starlette.requests import Request
 from starlette.responses import Response
 
-from .authenticate_client import ClientAuthentication
-from .errors import InvalidScopeError, UnsupportedGrantTypeError, UnsupportedResponseTypeError
-from .grants.base import BaseGrant
-from .mixins import ClientMixin, TokenMixin, UserMixin
-from .token_endpoint import TokenEndpoint
-from .util import scope_to_list
-from .wrappers import OAuth2Request
 from ..common.context import OAuthContext
 from ..common.deps import OAuthDependency
 from ..common.errors import OAuth2Error, SessionOAuthContextError, UnsetQueryClientError, UnsetSaveTokenError
 from ..common.setting import OAuthSetting
-from ..common.types import AuthenticateClientFn, GrantExtension, GroupTokenGenerator, QueryClientFn, SaveTokenFn, \
-    ContextDependency
+from ..common.types import (
+    AuthenticateClientFn,
+    ContextDependency,
+    GrantExtension,
+    GroupTokenGenerator,
+    QueryClientFn,
+    SaveTokenFn,
+)
 from ..rfc6749.signals import client_authenticated, token_revoked
 from ..rfc6750.token import BearerTokenGenerator
 from ..utils.consts import ACCESS_TOKEN_LENGTH, REFRESH_TOKEN_LENGTH
@@ -28,6 +27,13 @@ from ..utils.functions import (
     create_token_expires_in_generator,
     create_token_generator,
 )
+from .authenticate_client import ClientAuthentication
+from .errors import InvalidScopeError, UnsupportedGrantTypeError, UnsupportedResponseTypeError
+from .grants.base import BaseGrant
+from .mixins import ClientMixin, TokenMixin, UserMixin
+from .token_endpoint import TokenEndpoint
+from .util import scope_to_list
+from .wrappers import OAuth2Request
 
 
 class AuthorizationServer(OAuthDependency):
@@ -47,7 +53,7 @@ class AuthorizationServer(OAuthDependency):
     ):
         super().__init__(
             context_dependency=context_dependency,
-            request_cls=request_cls
+            request_cls=request_cls,
         )
         self.supported_scopes: List[str] = []
         self._token_generators: Dict[str, GroupTokenGenerator] = {}
@@ -296,7 +302,7 @@ class AuthorizationServer(OAuthDependency):
         endpoint = self._endpoints[name]
         return self._handle_response(*(await endpoint.create_endpoint_response(context)))
 
-    async def create_authorization_response(self, context: OAuthContext, grant_user: Optional["UserMixin"]) -> Response:
+    async def create_authorization_response(self, context: OAuthContext, grant_user: Optional['UserMixin']) -> Response:
         """Validate authorization request and create authorization response.
 
         :param grant_user: if resource owner granted the request, pass this
