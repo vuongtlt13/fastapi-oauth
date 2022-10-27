@@ -3,14 +3,23 @@
 
     .. _`Section 7`: https://tools.ietf.org/html/rfc6749#section-7
 """
-from typing import Dict, List, Tuple
+import functools
+import logging
+from contextlib import contextmanager
+from typing import Dict, List, Optional, Tuple
 
 from sqlalchemy.ext.asyncio import AsyncSession
+from starlette import status
 from starlette.requests import Request
 
+from ..common.context import OAuthContext
+from ..common.errors import OAuth2Error
 from .errors import MissingAuthorizationError, UnsupportedTokenTypeError
-from .mixins import TokenMixin
+from .mixins import TokenMixin, UserMixin
+from .signals import token_authenticated
 from .util import scope_to_list
+
+_logger = logging.getLogger(__name__)
 
 
 class TokenValidator(object):
@@ -40,7 +49,7 @@ class TokenValidator(object):
 
         return True
 
-    async def authenticate_token(self, token_string: str, session: AsyncSession) -> TokenMixin:
+    async def authenticate_token(self, token_string: str, session: AsyncSession) -> Optional[TokenMixin]:
         """A method to query token from database with the given token string.
         Developers MUST re-implement this method. For instance::
 
@@ -50,6 +59,19 @@ class TokenValidator(object):
         :param session: async SQLAlchemy session
         :param token_string: A string to represent the access_token.
         :return: token
+        """
+        raise NotImplementedError()
+
+    async def query_user(self, token: TokenMixin, session: AsyncSession) -> Optional[UserMixin]:
+        """A method to query token from database with the given token string.
+        Developers MUST re-implement this method. For instance::
+
+            def authenticate_token(self, token_string):
+                return get_token_from_database(token_string)
+
+        :param session: async SQLAlchemy session
+        :param token: TokenMixin object.
+        :return: user
         """
         raise NotImplementedError()
 
@@ -70,7 +92,7 @@ class TokenValidator(object):
         """
         raise NotImplementedError()
 
-    def validate_token(self, token: TokenMixin, scopes: List[str], request: Request):
+    def validate_token(self, token: Optional[TokenMixin], request: Request, scopes: List[str] = None):
         """A method to validate if the authorized token is valid, if it has the
         permission on the given scopes. Developers MUST re-implement this method.
         e.g, check if token is expired, revoked::
@@ -136,10 +158,94 @@ class ResourceProtector(object):
         validator = self.get_token_validator(token_type)
         return validator, token_string
 
-    async def validate_request(self, scopes: List[str], request: Request, session: AsyncSession) -> TokenMixin:
+    async def validate_request(self, context: OAuthContext, scopes: List[str] = None) -> Optional[TokenMixin]:
         """Validate the request and return a token."""
-        validator, token_string = self.parse_request_authorization(request)
-        validator.validate_request(request)
-        token = await validator.authenticate_token(token_string, session)
-        validator.validate_token(token, scopes, request)
+        validator, token = await self.get_token_from_request(context)
+        validator.validate_token(
+            token=token,
+            scopes=scopes,
+            request=context.request.raw_request,
+        )
+        user = None
+        if token and hasattr(validator, 'query_user') and context.session:
+            user = await validator.query_user(token=token, session=context.session)
+
+        context.token = token
+        context.user_from_token = user
         return token
+
+    async def acquire_token(self, context: OAuthContext, scopes: List[str] = None) -> Optional[TokenMixin]:
+        """A method to acquire current valid token with the given scope.
+
+        :param context: OAuthContext context
+        :param scopes: a list of scope values
+        :return: token object
+        """
+        token = await self.validate_request(context=context, scopes=scopes)
+        token_authenticated.send(self, token=token)
+        return token
+
+    @contextmanager
+    def acquire(self, context: OAuthContext, scopes: List[str] = None):
+        """The with statement of ``require_oauth``. Instead of using a
+        decorator, you can use a with statement instead::
+
+            @app.route('/api/user')
+            def user_api():
+                with require_oauth.acquire('profile') as token:
+                    user = User.query.get(token.user_id)
+                    return jsonify(user.to_dict())
+        """
+        try:
+            yield self.acquire_token(context=context, scopes=scopes)
+        except OAuth2Error:
+            raise
+
+    def require_scope(self, scopes: List[str] = None, optional=False):
+        def wrapper(f):
+            @functools.wraps(f)
+            def decorated(*args, **kwargs):
+                # find context object
+                context: Optional[OAuthContext] = None
+                for arg in args:
+                    if isinstance(arg, OAuthContext):
+                        context = arg
+
+                for _, v in kwargs.items():
+                    if isinstance(v, OAuthContext):
+                        context = v
+
+                if context is None:
+                    _logger.error(
+                        'You must add `OAuthContext` argument in your function! '
+                        'Just use dependency `AuthorizationServer.get_oauth_context`',
+                    )
+                    raise OAuth2Error(
+                        description='You must add `OAuthContext` argument in your function! '
+                                    'Just use dependency `AuthorizationServer.get_oauth_context`',
+                        status_code=status.HTTP_500_INTERNAL_SERVER_ERROR,
+                    )
+
+                try:
+                    self.acquire_token(context=context, scopes=scopes)
+                except MissingAuthorizationError:
+                    if optional:
+                        return f(*args, **kwargs)
+                    raise
+                except OAuth2Error:
+                    raise
+                return f(*args, **kwargs)
+
+            return decorated
+
+        return wrapper
+
+    async def get_token_from_request(self, context: OAuthContext) -> Tuple[TokenValidator, Optional[TokenMixin]]:
+        validator, token_string = self.parse_request_authorization(context.request.raw_request)
+        validator.validate_request(context.request.raw_request)
+        if context.session:
+            token = await validator.authenticate_token(token_string, context.session)
+        else:
+            token = None
+
+        return validator, token

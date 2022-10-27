@@ -1,6 +1,6 @@
 [tool.poetry]
 name = "fastapi-oauth"
-version = "0.2.8"
+version = "0.2.9"
 description = "OAuth2 Provider in FastAPI"
 authors = ["Đỗ Quốc Vương <vuongtlt13@gmail.com>"]
 license = "GNU General Public License v3 (GPLv3)"
@@ -47,7 +47,7 @@ default-keyring = "keyring.backends.SecretService.Keyring"
 
 [project]
 name = "fastapi-oauth"
-version = "0.2.8"
+version = "0.2.9"
 authors = [
     { name = "Đỗ Quốc Vương", email = "vuongtlt13@gmail.com" },
 ]

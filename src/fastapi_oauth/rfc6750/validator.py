@@ -1,10 +1,12 @@
 """
     Validate Bearer Token for in request, scope and token.
 """
+from typing import List, Optional
+
 from sqlalchemy.ext.asyncio import AsyncSession
 from starlette.requests import Request
 
-from ..rfc6749.mixins import TokenMixin
+from ..rfc6749.mixins import TokenMixin, UserMixin
 from ..rfc6749.resource_protector import TokenValidator
 from .errors import InsufficientScopeError, InvalidTokenError
 
@@ -15,7 +17,7 @@ class BearerTokenValidator(TokenValidator):
 
     TOKEN_TYPE = 'bearer'
 
-    async def authenticate_token(self, token_string, session: AsyncSession) -> TokenMixin:
+    async def authenticate_token(self, token_string, session: AsyncSession) -> Optional[TokenMixin]:
         """A method to query token from database with the given token string.
         Developers MUST re-implement this method. For instance::
 
@@ -28,7 +30,20 @@ class BearerTokenValidator(TokenValidator):
         """
         raise NotImplementedError()
 
-    def validate_token(self, token, scopes, request):
+    async def query_user(self, token: TokenMixin, session: AsyncSession) -> Optional[UserMixin]:
+        """A method to query token from database with the given token string.
+        Developers MUST re-implement this method. For instance::
+
+            def authenticate_token(self, token_string):
+                return get_token_from_database(token_string)
+
+        :param session: async SQLAlchemy session
+        :param token: TokenMixin object.
+        :return: user
+        """
+        raise NotImplementedError()
+
+    def validate_token(self, token: Optional[TokenMixin], request, scopes: List[str] = None):
         """Check if token is active and matches the requested scopes."""
         if not token:
             raise InvalidTokenError(realm=self.realm, extra_attributes=self.extra_attributes)

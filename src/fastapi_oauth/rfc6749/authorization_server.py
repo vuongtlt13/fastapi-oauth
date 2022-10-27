@@ -94,7 +94,7 @@ class AuthorizationServer(OAuthDependency):
         if self._save_token is None:
             raise UnsetSaveTokenError()
 
-    def _generate_token(
+    def generate_token(
         self,
         grant_type: str,
         client: ClientMixin,
