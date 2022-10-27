@@ -2,9 +2,9 @@ from typing import Any, Dict, Optional, Tuple
 
 from sqlalchemy.ext.asyncio import AsyncSession
 
+from ..common.context import OAuthContext
 from .mixins import ClientMixin, TokenMixin
 from .wrappers import OAuth2Request
-from ..common.context import OAuthContext
 
 
 class TokenEndpoint(object):
