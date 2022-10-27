@@ -1,10 +1,10 @@
 from typing import Any, Dict, Optional, Tuple
 
 from sqlalchemy.ext.asyncio import AsyncSession
-from starlette.requests import Request
 
-from .models import ClientMixin, OAuth2ClientBase
+from .mixins import ClientMixin, TokenMixin
 from .wrappers import OAuth2Request
+from ..common.context import OAuthContext
 
 
 class TokenEndpoint(object):
@@ -18,9 +18,6 @@ class TokenEndpoint(object):
     def __init__(self, server):
         self.server = server
 
-    async def create_endpoint_request(self, request: Request) -> OAuth2Request:
-        return await self.server.create_oauth2_request(request)
-
     async def authenticate_endpoint_client(self, request: OAuth2Request) -> ClientMixin:
         """Authentication client for endpoint with ``CLIENT_AUTH_METHODS``.
         """
@@ -32,8 +29,8 @@ class TokenEndpoint(object):
         request.client = client
         return client
 
-    async def authenticate_token(self, request: OAuth2Request, client, session: AsyncSession) -> Optional[ClientMixin]:
+    async def authenticate_token(self, context: OAuthContext, client: ClientMixin) -> Optional[TokenMixin]:
         raise NotImplementedError()
 
-    async def create_endpoint_response(self, request: OAuth2Request, session: AsyncSession) -> Tuple[int, Any, Dict]:
+    async def create_endpoint_response(self, context: OAuthContext) -> Tuple[int, Any, Dict]:
         raise NotImplementedError()

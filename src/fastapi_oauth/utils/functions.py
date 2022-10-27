@@ -6,6 +6,7 @@ from sqlalchemy.ext.asyncio import AsyncSession
 from starlette.requests import Request
 from werkzeug.utils import import_string
 
+from ..common.context import OAuthContext
 from ..common.errors import OAuth2Error
 from ..common.security import generate_token
 from ..common.types import ExpireTokenGenerator, QueryClientFn, QueryTokenFn, SaveTokenFn, SingleTokenGenerator
@@ -89,14 +90,16 @@ def create_revocation_endpoint(token_model: Type[TokenMixin]):
         async def query_token(self, token: str, token_type_hint: str, session: AsyncSession):
             return await query_token(token=token, token_type_hint=token_type_hint, session=session)
 
-        async def revoke_token(self, token: TokenMixin, request: OAuth2Request, session: AsyncSession):
+        async def revoke_token(self, context: OAuthContext, token: TokenMixin):
             now = int(time.time())
-            hint = request.token_type_hint
+            hint = context.request.token_type_hint
             token.access_token_revoked_at = now
             if hint != 'access_token':
                 token.refresh_token_revoked_at = now
-            session.add(token)
-            await session.commit()
+
+            if context.session:
+                context.session.add(token)
+                await context.session.commit()
 
     return _RevocationEndpoint
 
