@@ -6,12 +6,11 @@ import time
 from typing import Any, List, Optional
 
 from sqlalchemy import Column, Integer, String, Text
-from sqlalchemy.orm import as_declarative
 
-from ..common.encoding import json_dumps, json_loads
-from ..common.types import ClientMetadataDict
 from .mixins import AuthorizationCodeMixin, ClientMixin, TokenMixin
 from .util import list_to_scope, scope_to_list
+from ..common.encoding import json_dumps, json_loads
+from ..common.types import ClientMetadataDict
 
 
 class OAuth2ClientBase(ClientMixin):

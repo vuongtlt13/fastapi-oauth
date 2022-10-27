@@ -1,21 +1,16 @@
-from dataclasses import dataclass
-from typing import Any, Callable, Coroutine, Optional, Type
+from typing import Optional, Type, TYPE_CHECKING
 
 from fastapi import Depends
 from sqlalchemy.ext.asyncio import AsyncSession
 from starlette.requests import Request
 
-from ..rfc6749.mixins import UserMixin
-from ..rfc6749.wrappers import OAuth2Request
-from ..utils.functions import create_oauth_request
 from .context import OAuthContext
+from ..utils.functions import create_oauth_request
 
-
-@dataclass
-class ContextDependency:
-    get_db_session: Callable[..., Coroutine[Any, Any, AsyncSession]]
-    get_user_from_session: Callable[..., Coroutine[Any, Any, Optional[UserMixin]]]
-    get_user_from_token: Callable[..., Coroutine[Any, Any, Optional[UserMixin]]]
+if TYPE_CHECKING:
+    from ..rfc6749.mixins import UserMixin
+    from ..rfc6749.wrappers import OAuth2Request
+    from .types import ContextDependency
 
 
 class OAuthDependency(object):
@@ -25,8 +20,8 @@ class OAuthDependency(object):
 
     def __init__(
         self,
-        context_dependency: ContextDependency,
-        request_cls: Type[OAuth2Request] = OAuth2Request,
+        context_dependency: "ContextDependency",
+        request_cls: Type["OAuth2Request"],
     ):
         self.context_dependency = context_dependency
         self._request_cls = request_cls
@@ -34,7 +29,7 @@ class OAuthDependency(object):
     async def get_oauth_context(
         self,
         request: Request,
-        request_cls: Type[OAuth2Request] = OAuth2Request,
+        request_cls: Type["OAuth2Request"] = None,
     ) -> OAuthContext:
         """
         Get OAuth Context Dependency for FastAPI
@@ -48,8 +43,8 @@ class OAuthDependency(object):
 
         async def build_oauth_context(
             session: AsyncSession = Depends(get_db_session),
-            user_from_session: Optional[UserMixin] = Depends(get_user_from_session),
-            user_from_token: Optional[UserMixin] = Depends(get_user_from_token),
+            user_from_session: Optional["UserMixin"] = Depends(get_user_from_session),
+            user_from_token: Optional["UserMixin"] = Depends(get_user_from_token),
         ) -> OAuthContext:
             oauth_request = await create_oauth_request(
                 request=request,
