@@ -28,13 +28,10 @@ class OAuthDependency(object):
         self.context_dependency = context_dependency
         self._request_cls = request_cls
 
-    def get_oauth_context(
-        self,
-        request_cls: Type['OAuth2Request'] = None,
-    ) -> Callable[..., Coroutine[Any, Any, OAuthContext]]:
+    @property
+    def get_oauth_context(self) -> Callable[..., Coroutine[Any, Any, OAuthContext]]:
         """
         Get OAuth Context Dependency for FastAPI
-        :param request_cls: OAuth2Request class
         :return:
         """
         get_db_session = self.context_dependency.get_db_session
@@ -53,7 +50,7 @@ class OAuthDependency(object):
 
             oauth_request = await create_oauth_request(
                 request=request,
-                request_cls=request_cls or self._request_cls,
+                request_cls=self._request_cls,
                 allow_insecure_transport=allow_insecure_transport,
             )
             return OAuthContext(

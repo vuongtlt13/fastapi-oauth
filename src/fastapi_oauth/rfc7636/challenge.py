@@ -2,6 +2,7 @@ import hashlib
 import re
 
 from ..common.encoding import to_bytes, to_unicode, urlsafe_b64encode
+from ..common.types import GrantExtension
 from ..rfc6749.errors import InvalidGrantError, InvalidRequestError
 from ..rfc6749.grants import BaseGrant
 
@@ -25,7 +26,7 @@ def compare_s256_code_challenge(code_verifier, code_challenge):
     return create_s256_code_challenge(code_verifier) == code_challenge
 
 
-class CodeChallenge(object):
+class CodeChallenge(GrantExtension):
     """CodeChallenge extension to Authorization Code Grant. It is used to
     improve the security of Authorization Code flow for public clients by
     sending extra "code_challenge" and "code_verifier" to the authorization

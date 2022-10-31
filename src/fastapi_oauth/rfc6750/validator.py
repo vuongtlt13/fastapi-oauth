@@ -44,7 +44,11 @@ class BearerTokenValidator(TokenValidator):
         raise NotImplementedError()
 
     def validate_token(self, token: Optional[TokenMixin], request, scopes: List[str] = None):
-        """Check if token is active and matches the requested scopes."""
+        """Check if token is active and matches the requested scopes.
+        :param token: Token instance
+        :param request: Request instance
+        :param scopes: require scopes for the request
+        """
         if not token:
             raise InvalidTokenError(realm=self.realm, extra_attributes=self.extra_attributes)
         if token.is_expired():
