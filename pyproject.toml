@@ -1,9 +1,30 @@
 [tool.poetry]
 name = "fastapi-oauth"
-version = "0.3.2"
+version = "0.3.3"
 description = "OAuth2 Provider in FastAPI"
-authors = ["Đỗ Quốc Vương <vuongtlt13@gmail.com>"]
-license = "GNU General Public License v3 (GPLv3)"
+authors = [
+    "Đỗ Quốc Vương <vuongtlt13@gmail.com>",
+]
+license = "GPL-3.0-only"
+readme = "README.md"
+repository = "https://github.com/vuongtlt13/fastapi-oauth"
+keywords = [
+    "oauth2",
+    "fastapi"
+]
+classifiers = [
+    "Programming Language :: Python :: 3",
+    "Programming Language :: Python :: 3.7",
+    "Programming Language :: Python :: 3.8",
+    "Programming Language :: Python :: 3.9",
+    "Programming Language :: Python :: 3.10",
+    "License :: OSI Approved :: GNU General Public License v3 (GPLv3)",
+    "Operating System :: OS Independent",
+]
+
+[tool.poetry.urls]
+"Homepage" = "https://github.com/vuongtlt13/fastapi-oauth"
+"Bug Tracker" = "https://github.com/vuongtlt13/fastapi-oauth/issues"
 
 [tool.poetry.dependencies]
 python = "^3.7"
@@ -49,22 +70,3 @@ build-backend = "poetry.core.masonry.api"
 
 [backend]
 default-keyring = "keyring.backends.SecretService.Keyring"
-
-[project]
-name = "fastapi-oauth"
-version = "0.3.2"
-authors = [
-    { name = "Đỗ Quốc Vương", email = "vuongtlt13@gmail.com" },
-]
-description = "OAuth2 Provider in FastAPI"
-readme = "README.md"
-requires-python = ">=3.7"
-classifiers = [
-    "Programming Language :: Python :: 3",
-    "License :: OSI Approved :: GNU General Public License v3 (GPLv3)",
-    "Operating System :: OS Independent",
-]
-
-[project.urls]
-"Homepage" = "https://github.com/vuongtlt13/fastapi-oauth"
-"Bug Tracker" = "https://github.com/vuongtlt13/fastapi-oauth/issues"
