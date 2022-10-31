@@ -1,0 +1,79 @@
+[tool.poetry]
+name = "fastapi-oauth"
+version = "0.3.3"
+description = "OAuth2 Provider in FastAPI"
+authors = [
+    "Đỗ Quốc Vương <vuongtlt13@gmail.com>",
+]
+license = "GPL-3.0-only"
+readme = "README.md"
+repository = "https://github.com/vuongtlt13/fastapi-oauth"
+keywords = [
+    "oauth2",
+    "fastapi"
+]
+classifiers = [
+    "Programming Language :: Python :: 3",
+    "Programming Language :: Python :: 3.7",
+    "Programming Language :: Python :: 3.8",
+    "Programming Language :: Python :: 3.9",
+    "Programming Language :: Python :: 3.10",
+    "License :: OSI Approved :: GNU General Public License v3 (GPLv3)",
+    "Operating System :: OS Independent",
+]
+
+[tool.poetry.urls]
+"Homepage" = "https://github.com/vuongtlt13/fastapi-oauth"
+"Bug Tracker" = "https://github.com/vuongtlt13/fastapi-oauth/issues"
+
+[tool.poetry.dependencies]
+python = "^3.7"
+fastapi = "^0.85.1"
+SQLAlchemy = { version = "^1.4.28", extras = ["asyncio"] }
+Werkzeug = "^2.2.2"
+pydantic = { version = "^1.10.2", extras = ["dotenv"] }
+
+[tool.poetry.group.dev.dependencies]
+sqlalchemy = { version = "^1.4.28", extras = ["mypy"] }
+mypy = "0.930"
+sqlalchemy2-stubs = "^0.0.2a29"
+isort = "^5.10.1"
+pre-commit = "^2.20.0"
+
+[tool.poetry.group.build.dependencies]
+keyring = "^23.9.3"
+twine = "^4.0.1"
+
+
+[tool.poetry.group.test.dependencies]
+pytest = "^7.2.0"
+coverage = {version = "^6.5.0", extras = ["toml"]}
+
+[tool.isort]
+multi_line_output = 3
+include_trailing_comma = true
+force_grid_wrap = 0
+line_length = 120
+
+[tool.mypy]
+plugins = "sqlalchemy.ext.mypy.plugin,pydantic.mypy"
+
+[[tool.mypy.overrides]]
+module = [
+    "sqlalchemy.orm.*",
+    "sqlalchemy.ext.asyncio"
+]
+ignore_missing_imports = true
+
+[tool.coverage.run]
+source = ["src"]
+
+[tool.coverage.report]
+show_missing = true
+
+[build-system]
+requires = ["poetry-core>=1.0.0"]
+build-backend = "poetry.core.masonry.api"
+
+[backend]
+default-keyring = "keyring.backends.SecretService.Keyring"
