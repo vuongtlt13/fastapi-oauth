@@ -67,7 +67,8 @@ class BearerTokenGenerator(object):
         grant_type: str,
         client: ClientMixin,
         user=None, scope=None,
-        expires_in=None, include_refresh_token=True,
+        expires_in=None,
+        include_refresh_token=True,
     ):
         """Generate a bearer token for OAuth 2.0 authorization token endpoint.
 

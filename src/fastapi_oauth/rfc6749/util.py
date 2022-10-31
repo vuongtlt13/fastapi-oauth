@@ -1,6 +1,6 @@
 import base64
 import binascii
-from typing import Any, Dict, Optional, Tuple
+from typing import Any, Dict, List, Optional, Tuple
 
 from ..common.encoding import to_unicode
 
@@ -14,7 +14,7 @@ def list_to_scope(scope):
     return to_unicode(scope)
 
 
-def scope_to_list(scope: Any):
+def scope_to_list(scope: Any) -> Optional[List[str]]:
     """Convert a space separated string to a list of scopes."""
     if isinstance(scope, (tuple, list, set)):
         return [to_unicode(s) for s in scope]

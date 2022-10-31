@@ -34,21 +34,29 @@ class TokenValidator(object):
         self.extra_attributes = extra_attributes
 
     @staticmethod
-    def scope_insufficient(token_scopes: str, required_scopes: List[str]):
+    def scope_insufficient(token_scopes: str, required_scopes: List[str]) -> bool:
+        """
+            Check token scopes contain all require scopes.
+
+            Return False if Token scopes contain all require scopes,
+            it means token is valid and can continue the request.
+
+            Otherwise return True, it means token invalid for require scopes.
+            Must raise Error and block request!
+
+        :param token_scopes:  Token scopes in current request
+        :param required_scopes: Require scopes to continue request
+        :return: Return bool
+        """
         if not required_scopes:
             return False
 
-        token_scopes = scope_to_list(token_scopes)
-        if not token_scopes:
+        token_scopes_list = scope_to_list(token_scopes)
+        if not token_scopes_list:
             return True
 
-        token_scopes = set(token_scopes)
-        for scope in required_scopes:
-            resource_scopes = set(scope_to_list(scope))
-            if token_scopes.issuperset(resource_scopes):
-                return False
-
-        return True
+        token_scopes_set = set(token_scopes_list)
+        return not token_scopes_set.issuperset(set(required_scopes))
 
     async def authenticate_token(self, token_string: str, session: AsyncSession) -> Optional[TokenMixin]:
         """A method to query token from database with the given token string.
