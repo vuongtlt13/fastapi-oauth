@@ -20,6 +20,7 @@ jobs:
         uses: actions/setup-python@v4
         with:
           python-version: '3.7'
+          cache: 'poetry'
       - name: Install poetry and dependencies
         run: |
           python -m pip install --upgrade pip
