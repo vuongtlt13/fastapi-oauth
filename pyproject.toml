@@ -47,6 +47,7 @@ twine = "^4.0.1"
 
 [tool.poetry.group.test.dependencies]
 pytest = "^7.2.0"
+coverage = {version = "^6.5.0", extras = ["toml"]}
 
 [tool.isort]
 multi_line_output = 3
@@ -63,6 +64,12 @@ module = [
     "sqlalchemy.ext.asyncio"
 ]
 ignore_missing_imports = true
+
+[tool.coverage.run]
+source = ["src"]
+
+[tool.coverage.report]
+show_missing = true
 
 [build-system]
 requires = ["poetry-core>=1.0.0"]
