@@ -11,7 +11,7 @@ runs:
   using: "composite"
   steps:
     - name: Set up Python and Install Dependency
-      uses: ./.github/actions/action.yml
+      uses: ./.github/actions/setup_python_poetry
       with:
         os: ${{ inputs.os }}
         python_version: ${{ inputs.python_version }}
