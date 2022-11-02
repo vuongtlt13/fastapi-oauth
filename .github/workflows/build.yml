@@ -9,6 +9,7 @@ on:
     types:
       - completed
     branches: ['release*']
+    tags: ['*']
 
 jobs:
   build:
