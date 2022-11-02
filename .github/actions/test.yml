@@ -1,0 +1,23 @@
+name: 'Run Test'
+description: 'Run Test'
+inputs:
+ os:
+    description: “OS Type”
+    required: true
+ python_version:
+   description: “Python Version”
+   required: true
+runs:
+  using: "composite"
+  steps:
+    - name: Set up Python and Install Dependency
+      uses: ./.github/actions/setup_python_poetry.yml
+      with:
+        os: ${{ inputs.os }}
+        python_version: ${{ inputs.python_version }}
+        poetry_group: 'test'
+    - name: Run pytest
+      run: |
+        source .venv/bin/activate
+        poetry run coverage run -m pytest tests/
+        poetry run coverage report
