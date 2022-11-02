@@ -13,7 +13,6 @@ inputs:
 runs:
   using: "composite"
   steps:
-    - uses: actions/checkout@v3
     - name: Set up Python ${{ inputs.python_version }}
       id: setup-python
       uses: actions/setup-python@v4
@@ -33,6 +32,8 @@ runs:
         key: venv-${{ inputs.os }}-${{ inputs.python_version }}-${{ hashFiles('pyproject.toml') }}
     - name: Install dependencies
       if: steps.cached-poetry-dependencies.outputs.cache-hit != 'true'
+      shell: bash
       run: poetry install --no-interaction --no-root --with ${{ inputs.poetry_group }}
     - name: Install project
+      shell: bash
       run: poetry install --no-interaction

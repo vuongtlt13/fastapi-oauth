@@ -11,8 +11,9 @@ jobs:
   test:
     runs-on: ubuntu-latest
     steps:
+      - uses: actions/checkout@v3
       - name: Run Test
-        uses: ./.github/actions/test.yml
+        uses: ./.github/actions/test
         with:
           os: ubuntu-latest
           python_version: '3.7'
@@ -21,8 +22,9 @@ jobs:
     runs-on: ubuntu-latest
     needs: [test]
     steps:
+      - uses: actions/checkout@v3
       - name: Set up Python and Install Dependency
-        uses: ./.github/actions/setup_python_poetry.yml
+        uses: ./.github/actions/setup_python_poetry
         with:
           os: ubuntu-latest
           python_version: '3.7'
